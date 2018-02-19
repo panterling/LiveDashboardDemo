@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Condition Monitor</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" type="text/css" rel="stylesheet">
+    <style>
+        .badge-error .badge-danger {
+        background-color: #b94a48;
+        }
+        .badge-error:hover .badge-danger:hover {
+        background-color: #953b39;
+        }
+        .badge-warning {
+        background-color: #f89406;
+        }
+        .badge-warning:hover {
+        background-color: #c67605;
+        }
+        .badge-success {
+        background-color: #468847;
+        }
+        .badge-success:hover {
+        background-color: #356635;
+        }
+        .badge-info {
+        background-color: #3a87ad;
+        }
+        .badge-info:hover {
+        background-color: #2d6987;
+        }
+        .badge-inverse {
+        background-color: #333333;
+        }
+        .badge-inverse:hover {
+        background-color: #1a1a1a;
+        }
+    </style>
+
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.js" ></script>
+
+
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.13/vue.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>   
+    
+    <div class="container">
+        <div class="row">
+            <div class="col-sm">
+                    <div class="card">
+                        <div class="card-header" style="width: 100%; margin: auto;">
+                            <input type="button" class="btn btn-danger" style="float: right" value="KILL ALL" id="killSwitch"/>
+                        </div>
+                        <div class="card-body" style="text-align: center;">
+                            <svg width="960" height="500"></svg>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        <div id="app" class="row">
+            <!-- VUE JS HERE-->
+        </div>
+    </div>
+</div>
+
+
+<script>
+    const WINDOW_SIZE = 45;
+</script>
+
+<script type="module" src=".{{ url_for('static', filename = 'js/dist/Main.js') }} "></script>
+
+</body>
+</html>
