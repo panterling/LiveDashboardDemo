@@ -8,3 +8,8 @@ before_install:
 cache:
   directories:
     - "node_modules"
+
+
+script:
+  - cd Dashboard
+  - mocha static/js/test/test.test.js --compilers js:babel-core/register
