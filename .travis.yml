@@ -3,7 +3,7 @@ node_js:
  - "node"
 
 before_install:
-  - npm install
+  - npm -g install
 
 cache:
   directories:
