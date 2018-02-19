@@ -1,5 +1,5 @@
-import QueueManager
-import app as WebServer
+from FeedServer import QueueManager
+from Dashboard import app as WebServer
 
 import os
 import multiprocessing
@@ -10,7 +10,7 @@ kafkaStartArgs = ["/opt/kafka/kafka_2.11-0.11.0.0/bin/kafka-server-start.sh", "/
 subprocess.Popen(kafkaStartArgs) #, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
 # Build the JS
-webpackResult = subprocess.Popen(["webpack"])
+webpackResult = subprocess.Popen(["webpack", "--config", "Dashboard/config/webpack.config.js", "--context", "Dashboard"])
 
 WebServerProcess = multiprocessing.Process(target = WebServer.main)
 QueueManagerProcess = multiprocessing.Process(target = QueueManager.main)

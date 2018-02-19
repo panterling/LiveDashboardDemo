@@ -12,7 +12,7 @@ from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 from gevent.server import _tcp_listener
 
-import QueueManager
+from FeedServer import QueueManager
 
 app = Flask(__name__)
 sockets = Sockets(app)

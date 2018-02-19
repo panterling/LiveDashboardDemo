@@ -4,7 +4,7 @@ from threading import Thread
 import pika
 import queue
 
-from kafkaProducer import ProducerThread
+from FeedServer.kafkaProducer import ProducerThread
 
 REQUEST_MQ_NAME = "CMD"
 RESPONSE_MQ_NAME = "RESPONSE"
