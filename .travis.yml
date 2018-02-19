@@ -3,7 +3,7 @@ node_js:
  - "node"
 
 before_install:
-  - sudo npm install
+  - npm install
 
 cache:
   directories:
