@@ -1,0 +1,27 @@
+{
+  "name": "kafkalearning",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/panterling/LiveDashboardDemo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/panterling/LiveDashboardDemo/issues"
+  },
+  "homepage": "https://github.com/panterling/LiveDashboardDemo#readme",
+  "dependencies": {
+    "babel": "^6.23.0",
+    "babel-preset-es2015": "^6.24.1",
+    "chai": "^4.1.2",
+    "jasmine-console-reporter": "^2.0.1",
+    "karma-webpack": "^2.0.9",
+    "mocha": "^5.0.1"
+  }
+}
