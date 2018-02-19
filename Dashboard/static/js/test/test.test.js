@@ -9,4 +9,9 @@ describe("A suite", function() {
         let fm = new FeedManager();
         expect(true).to.equal(true);
     });
+
+    it("This should fail", function() {
+        let fm = new FeedManager();
+        expect(true).to.equal(false);
+    });
 });
