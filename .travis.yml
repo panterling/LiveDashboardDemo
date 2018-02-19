@@ -10,4 +10,4 @@ cache:
 
 script:
   - cd Dashboard
-  - mocha static/js/test/test.test.js --compilers js:babel-core/register
+  - ..//node_modules/.bin/mocha static/js/test/test.test.js --compilers js:babel-core/register
