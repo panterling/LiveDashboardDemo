@@ -1,7 +1,8 @@
 module.exports = {
     entry: './static/js/src/main.js',
     output: {
-      filename: './static/js/dist/Main.js'
+      path: __dirname + '/../static/js/dist',
+      filename: 'Main.js'
     },
     externals: {
       'vue':'Vue'

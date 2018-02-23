@@ -91,7 +91,7 @@ export default class FeedManager extends Publisher {
     _checkFeedState(id) {
         let currentStatus = this._feedsPending.findIndex((elem) => { return elem === id}) !== -1 ? "pending" : "available";
         $.ajax({
-            url: "/getFeedState",
+            url: "http://localhost:3000/getFeedState",
             method: "POST",
             dataType: "json",
             contentType: "application/json",
@@ -119,7 +119,7 @@ export default class FeedManager extends Publisher {
 
     fetchAllFeeds() {
         $.ajax({
-            url: "/feedList",
+            url: "http://localhost:3000/feedList",
             method: "POST",
             dataType: "json",
             contentType: "application/json",
@@ -139,7 +139,7 @@ export default class FeedManager extends Publisher {
 
     requestNewFeed() {
         $.ajax({
-            url: "/addFeed",
+            url: "http://localhost:3000/addFeed",
             method: "POST",
             dataType: "json",
             contentType: "application/json",

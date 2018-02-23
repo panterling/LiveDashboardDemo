@@ -102,7 +102,7 @@ class Publisher {
 
 
 
-const FEED_URL = "ws://localhost:5000/feedProvider"; // MAKE GLOBAL!
+const FEED_URL = "ws://localhost:3000/feedProvider"; // MAKE GLOBAL!
 
 const FEED_STATE = {
     IDLE: Symbol("IDLE"), //DEFUNCT
@@ -330,7 +330,7 @@ class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* 
 
     _checkStatus() {
         $.ajax({
-            url: "/status",
+            url: "http://localhost:3000/status",
             method: "POST",
             timeout: SERVICE_STATUS_TIMEOUT,
 
@@ -1292,7 +1292,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
     _checkFeedState(id) {
         let currentStatus = this._feedsPending.findIndex((elem) => { return elem === id}) !== -1 ? "pending" : "available";
         $.ajax({
-            url: "/getFeedState",
+            url: "http://localhost:3000/getFeedState",
             method: "POST",
             dataType: "json",
             contentType: "application/json",
@@ -1320,7 +1320,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
 
     fetchAllFeeds() {
         $.ajax({
-            url: "/feedList",
+            url: "http://localhost:3000/feedList",
             method: "POST",
             dataType: "json",
             contentType: "application/json",
@@ -1340,7 +1340,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
 
     requestNewFeed() {
         $.ajax({
-            url: "/addFeed",
+            url: "http://localhost:3000/addFeed",
             method: "POST",
             dataType: "json",
             contentType: "application/json",

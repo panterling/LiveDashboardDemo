@@ -33,7 +33,7 @@ export default class ServiceMonitor extends Publisher {
 
     _checkStatus() {
         $.ajax({
-            url: "/status",
+            url: "http://localhost:3000/status",
             method: "POST",
             timeout: SERVICE_STATUS_TIMEOUT,
 

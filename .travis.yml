@@ -1,7 +1,7 @@
 language: node_js
 
 before_install:
-  - npm -g install
+  - npm install
 
 cache:
   directories:
@@ -10,4 +10,4 @@ cache:
 
 script:
   - cd Dashboard
-  - ..//node_modules/.bin/mocha static/js/test/test.test.js --compilers js:babel-core/register
+  - ..//node_modules/.bin/mocha static/js/test --compilers js:babel-core/register

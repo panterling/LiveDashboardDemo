@@ -1,5 +1,4 @@
 from FeedServer import QueueManager
-from Dashboard import app as WebServer
 
 import os
 import multiprocessing
@@ -12,11 +11,10 @@ subprocess.Popen(kafkaStartArgs) #, stdout=subprocess.PIPE, stderr=subprocess.DE
 # Build the JS
 webpackResult = subprocess.Popen(["webpack", "--config", "Dashboard/config/webpack.config.js", "--context", "Dashboard"])
 
-WebServerProcess = multiprocessing.Process(target = WebServer.main)
+# Star Node Server
+subprocess.Popen(["node", "Dashboard/app.js"])
+
+# Start Stream Management
 QueueManagerProcess = multiprocessing.Process(target = QueueManager.main)
-
-WebServerProcess.start()
 QueueManagerProcess.start()
-
-WebServerProcess.join()
 QueueManagerProcess.join()

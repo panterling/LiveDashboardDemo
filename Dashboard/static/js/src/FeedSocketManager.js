@@ -1,7 +1,7 @@
 import Publisher from "./Publisher.js"
 import FeedSocketProxy from './FeedSocketProxy.js'
 
-const FEED_URL = "ws://localhost:5000/feedProvider"; // MAKE GLOBAL!
+const FEED_URL = "ws://localhost:3000/feedProvider"; // MAKE GLOBAL!
 
 const FEED_STATE = {
     IDLE: Symbol("IDLE"), //DEFUNCT
