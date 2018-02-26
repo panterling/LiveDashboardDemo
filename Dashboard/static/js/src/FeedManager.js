@@ -1,5 +1,5 @@
-import Publisher from "./Publisher.js"
-import FeedSocketManager from "./FeedSocketManager.js";
+import Publisher from "./Publisher"
+import FeedSocketManager from "./FeedSocketManager";
 import Feed from "./Feed.js";
 import ChartFeedProxy from "./ChartFeedProxy.js";
 
@@ -10,6 +10,10 @@ const STATES = {
     AWAITING_NEW_FEED: Symbol ("AWAITING_NEW_FEED"),
     CHECKING_FEED_STATE: Symbol("CHECKING_FEED_STATE")
 
+}
+
+const EVENTS = {
+    UPDATED_FEED_LIST: Symbol("FeedManager::" + "UPDATED_FEED_LIST")
 }
 
 export default class FeedManager extends Publisher {
@@ -36,6 +40,8 @@ export default class FeedManager extends Publisher {
     addFeed(feedId) {
         if(feedId === undefined) {
             throw Error("feedId is undefined")
+        } else if(this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; }) === -1) {
+            throw Error("feedId is not AVAILABLE")
         } else if(this._feeds[feedId] !== undefined) {
             throw Error("feedId already in use.")
         }
@@ -51,6 +57,8 @@ export default class FeedManager extends Publisher {
         newFeed.attachChart(chartProxy);
 
         this._feeds[feedId] = newFeed;
+
+        this._feedsAvailable[this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; })].isAdded = true;   
 
         this._updateViewModel();
     }
@@ -84,7 +92,7 @@ export default class FeedManager extends Publisher {
     }
 
     _changeState(newState) {
-        console.log(`${this.constructor.name}:: CHANGE STATE: ${newState.toString()}`);
+        this.log(` CHANGE STATE: ${newState.toString()}`);
         this._state = newState;
     }
 
@@ -105,7 +113,10 @@ export default class FeedManager extends Publisher {
                 if(response.state && response.state !== currentStatus) {
                     if(currentStatus === "pending") {
                         this._feedsPending.splice(this._feedsPending.findIndex((elem) => { return elem === id}), 1)
-                        this._feedsAvailable.push(id)
+                        this._feedsAvailable.push({
+                            feedId: id,
+                            isAdded: false
+                        })
 
                         this._notifyAllFeedListChanges();
                     }
@@ -127,7 +138,12 @@ export default class FeedManager extends Publisher {
                 this._changeState(FeedManager.STATES.REQUESTING_FEED_LIST);
             },
             success: (response) => {
-                this._feedsAvailable = response;
+                this._feedsAvailable = response.map((elem) => {
+                    return {
+                        feedId: elem,
+                        isAdded: false
+                    }
+                });
 
                 this._notifyAllFeedListChanges();
             },
@@ -161,7 +177,7 @@ export default class FeedManager extends Publisher {
                     this._checkFeedState(response.feedId);
                 }, 2000 );
 
-                console.log(`Pending Feed: ${response.feedId}`);
+                this.log(`Pending Feed: ${response.feedId}`);
             },
             error: () => {
                 this._changeState(FeedManager.STATES.IDLE);                
@@ -170,7 +186,7 @@ export default class FeedManager extends Publisher {
     }
     
     _notifyAllFeedListChanges() {
-        this.broadcastEvent("UPDATED_FEED_LIST", {
+        this.broadcastEvent(FeedManager.EVENTS.UPDATED_FEED_LIST, {
             feedList: {
                 available: this._feedsAvailable,
                 pending: this._feedsPending
@@ -190,22 +206,30 @@ export default class FeedManager extends Publisher {
                     id: feedId,
                     state: undefined,
                     rxCount: undefined,
-                    showAlert: undefined
+                    alertPosition: 0,
+                    showAlert: undefined,
+                    isAdded: false
                 });
                 idx = this._viewModel["model"].length - 1;
             }
 
             this._viewModel["model"][idx].state = this._feeds[feedId]._state;
             this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
+            this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
             this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
+            this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
         }
     }
 
     processEvent(event, params) {
         switch(event) {
-            case "STATE_CHANGE":
+            case Feed.EVENTS.STATE_CHANGE:
                 this._updateViewModel();
                 break;
         }
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }

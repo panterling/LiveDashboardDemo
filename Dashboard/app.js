@@ -23,7 +23,20 @@ amqp.connect('amqp://localhost', function(err, conn) {
         MQChannel = ch;
         
         MQChannel.consume(RESPONSE_MQ_NAME, function(msg) {
-            console.log(" [x] Received %s", msg.content.toString());
+
+            console.log(`Rx: ${msg.content}`)
+            let payload = JSON.parse(msg.content);
+
+            feedId = payload["feedId"]
+            status = payload["status"]
+
+            if (status === "available" && feedsPending.findIndex(elem => elem === feedId) !== -1) {
+                feedsPending.splice(feedsPending.findIndex(elem => elem === feedId), 1);
+                feedsAvailable.push(feedId);
+            } else{ 
+                    console.log("Don't know what to do with this message......")            
+            }
+
         }, {noAck: true});
     });
 });
@@ -38,7 +51,7 @@ function sendCommandToMQ(payload) {
 
 // KAFKA
 var kafka = require('kafka-node');
-var HighLevelConsumer = kafka.HighLevelConsumer;
+var ConsumerGroup = kafka.ConsumerGroup;
 
 
 // WEB SOCKETS
@@ -106,19 +119,27 @@ app.all('/getFeedState', function(req, res, next){
 app.all('/addFeed', function(req, res, next){
     console.log('addFeed', req.testing);
 
+    let ret = {};
+    let responseCode = 200;
+
     let feedId = feedIdGenerator.next().value;
-    feedsPending.push(feedId);
 
-    let ret = {
-        "feedId": feedId
-    };
+    if(feedId) {
+        feedsPending.push(feedId);
 
-    sendCommandToMQ({
-        "command": "startProducer",
-        "feedId": feedId
-    })
+        ret = {
+            "feedId": feedId
+        };
 
-    res.send(JSON.stringify(ret))
+        sendCommandToMQ({
+            "command": "startProducer",
+            "feedId": feedId
+        })
+    } else {
+        responseCode = 400;
+    }
+
+    res.send(responseCode, JSON.stringify(ret))
 });
 
 app.all('/feedList', function(req, res, next){
@@ -162,31 +183,42 @@ app.ws('/feedProvider', function(ws, req) {
 
             // Start consumption
             let client = new kafka.Client();
+            let kafkaOffset = new kafka.Offset(client);
+            
+            kafkaOffset.fetch([
+                { topic: feedId, partition: 0, time: -1, maxNum: 1 }
+            ], function (err, data) {
+                offsetVal = data[feedId][0][0]
 
-            consumer = new HighLevelConsumer(
-                client,
-                [
-                    { topic: feedId }
-                ]
-            );
+                console.log("Starting at offset: " + offsetVal);
 
-            consumer.on('message', function (message) {
-                if(ws.readyState === ws.OPEN) {
-    
-                    msgObj = JSON.parse(message.value)
-                    msgObj.value += Math.random()
-    
-                    ws.send(JSON.stringify(msgObj))
-                } else {
-                    console.log("WS closed but consumer still running ARGHHHH hmmmmm")
-                }
+                consumer = new ConsumerGroup({
+                        fromOffset: 'latest',
+                        groupId: "" + (Math.random())
+                    }, 
+                    feedId);
+
+                consumer.on('message', function (message) {
+                    if(ws.readyState === ws.OPEN) {
+        
+                        msgObj = JSON.parse(message.value)
+                        msgObj.value += Math.random()
+        
+                        ws.send(JSON.stringify(msgObj))
+                    } else {
+                        console.log("WS closed but consumer still running ARGHHHH hmmmmm")
+                    }
+                });
+
             });
         }
 
     });
 
     ws.on('close', (msg) => {
-        consumer.close();
+        consumer.close(() => {
+            console.log("Closing kafka ConsumerGroup....")
+        });
         delete consumer;
     });
 

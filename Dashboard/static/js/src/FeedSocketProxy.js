@@ -1,4 +1,10 @@
-import Publisher from "./Publisher.js";
+import Publisher from "./Publisher";
+import FeedSocketManager from "./FeedSocketManager"
+
+const EVENTS = {
+    FEED_STATE_CHANGE: Symbol("FeedSocketProxy::" + "FEED_STATE_CHANGE"),
+    NEW_DATA: Symbol("FeedSocketProxy::" + "NEW_DATA"),
+};
 
 export default class FeedSocketProxy extends Publisher {
     constructor(feedSocketManager, feedId) {
@@ -19,13 +25,17 @@ export default class FeedSocketProxy extends Publisher {
     processEvent(event, params) {
         if(params.feedId === this._feedId) {
             switch(event){
-                case "FEED_STATE_CHANGE":
-                    this.broadcastEvent("FEED_STATE_CHANGE", params)
+                case FeedSocketManager.EVENTS.FEED_STATE_CHANGE:
+                    this.broadcastEvent(FeedSocketProxy.EVENTS.FEED_STATE_CHANGE, params)
                     break;
-                case "NEW_DATA":
-                    this.broadcastEvent("NEW_DATA", params);
+                case FeedSocketManager.EVENTS.NEW_DATA:
+                    this.broadcastEvent(FeedSocketProxy.EVENTS.NEW_DATA, params);
                     break;
             }
         }
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }

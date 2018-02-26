@@ -60,52 +60,56 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 8);
+/******/ 	return __webpack_require__(__webpack_require__.s = 11);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var mixins = __webpack_require__(12);
+const Logging_1 = __webpack_require__(4);
 class Publisher {
     constructor() {
+        mixins(Logging_1.default, this);
         this._subscribers = [];
     }
-
     subscribe(subscriber) {
         this._subscribers.push(subscriber);
     }
-
     broadcastEvent(event, params) {
-        for(let subscriber of this._subscribers) {
+        this.log("BROADCASTING: " + event.toString());
+        for (let subscriber of this._subscribers) {
             subscriber.processEvent(event, params);
         }
     }
-
     processEvent(event, params) {
         // Abstract
-        throw "processEvent() should be implemented in Child class."
+        throw Error("processEvent() should be implemented in Child class.");
     }
-
+    static get EVENTS() {
+        // Abstract
+        throw Error("EVENTS() should be implemented in Child class.");
+    }
 }
-/* harmony export (immutable) */ __webpack_exports__["a"] = Publisher;
+exports.default = Publisher;
 
 
 /***/ }),
 /* 1 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketProxy_js__ = __webpack_require__(11);
 
-
-
+Object.defineProperty(exports, "__esModule", { value: true });
+const Publisher_1 = __webpack_require__(0);
+const FeedSocketProxy_js_1 = __webpack_require__(6);
 const FEED_URL = "ws://localhost:3000/feedProvider"; // MAKE GLOBAL!
-
 const FEED_STATE = {
-    IDLE: Symbol("IDLE"), //DEFUNCT
+    IDLE: Symbol("IDLE"),
     OPENING: Symbol("OPENING"),
     OPEN: Symbol("OPEN"),
     REQUESTING_FEED: Symbol("REQUESTING_FEED"),
@@ -113,180 +117,136 @@ const FEED_STATE = {
     REJECTED: Symbol("REJECTED"),
     CLOSED: Symbol("CLOSED")
 };
-
-class FeedSocketManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
+const EVENTS = {
+    FEED_STATE_CHANGE: Symbol("FeedSocketManager::" + "FEED_STATE_CHANGE"),
+    NEW_DATA: Symbol("FeedSocketManager::" + "NEW_DATA"),
+    RX: Symbol("FeedSocketManager::" + "RX")
+};
+class FeedSocketManager extends Publisher_1.default {
     constructor() {
         super();
-
-        this._feeds = []
+        this._feeds = [];
     }
-
     static get FEED_STATE() {
         return FEED_STATE;
     }
-
     _createWebSocket(id) {
         let ws = new WebSocket(FEED_URL);
-
         ws.onopen = (e) => {
             this._socketOpened(id, e);
             this._requestFeed(id);
         };
-        
         ws.onclose = (e) => {
             this._socketClosed(id, e);
         };
-        
         ws.onmessage = (e) => {
             this._socketMessageReceived(id, e);
         };
-
         ws.onerror = (e) => {
             this._socketError(id, e);
         };
-
         return ws;
     }
-
-
     addFeed(id) {
-
-        if(this._feeds.hasOwnProperty(id)){
+        if (this._feeds.hasOwnProperty(id)) {
             throw "Feed ID Already In Use: " + id;
         }
-        
-        let socketProxy = new __WEBPACK_IMPORTED_MODULE_1__FeedSocketProxy_js__["a" /* default */](this, id);
+        let socketProxy = new FeedSocketProxy_js_1.default(this, id);
         this.subscribe(socketProxy);
-
         let webSocket = this._createWebSocket(id);
-        
         this._feeds[id] = {
             state: FeedSocketManager.FEED_STATE.IDLE,
             proxy: socketProxy,
             socket: webSocket
-        }        ;
-
+        };
         this._changeState(id, FeedSocketManager.FEED_STATE.OPENING);
-
         return this._feeds[id].proxy;
-        
     }
-
     /// FEED MANAGEMENT
-    _requestFeed(id){
+    _requestFeed(id) {
         this._changeState(id, FeedSocketManager.FEED_STATE.REQUESTING_FEED);
-
         this._socketSend(id, {
             feedId: id
         });
     }
-            
-
-
     /// SOCKET MANAGEMENT
-
     _socketOpened(id, e) {
         this.log(`<${id}> Opened`);
-        
         this._changeState(id, FeedSocketManager.FEED_STATE.OPEN);
     }
-
     _socketClosed(id, e) {
         this.log(`<${id}> Closed: ${e.code}`);
-
         // Manually push for socket closure
         // Cases where the server sends ADNORMAL (1006) close event and continues sending messages as if the socket is open.
         this._feeds[id].socket.close();
-
         this._changeState(id, FeedSocketManager.FEED_STATE.CLOSED);
-        
     }
-
     _socketError(id, e) {
         this.log(`<${id}> ERROR`);
-
         this._changeState(id, FeedSocketManager.FEED_STATE.CLOSED);
     }
-
     _socketMessageReceived(id, e) {
         //this.log(`<${id}> Rx`)
-
-        this.broadcastEvent("RX", { feedId: id, value: JSON.parse(e.data).value })
-
-        switch(this._feeds[id].state) {
+        this.broadcastEvent(FeedSocketManager.EVENTS.RX, { feedId: id, value: JSON.parse(e.data).value });
+        switch (this._feeds[id].state) {
             case FeedSocketManager.FEED_STATE.REQUESTING_FEED:
                 let jsonResponse = JSON.parse(e.data);
-
-                if(jsonResponse.status === "accepted") {
+                if (jsonResponse.status === "accepted") {
                     this._changeState(id, FeedSocketManager.FEED_STATE.RECEIVING);
-
-                } else {
-                    throw "Feed Request Rejected :("
                 }
-
+                else {
+                    throw "Feed Request Rejected :(";
+                }
                 break;
-
             case FeedSocketManager.FEED_STATE.RECEIVING:
                 //this.log(`<${id}>Got a data packet.`);
-                this._feeds[id].proxy.broadcastEvent("NEW_DATA", {data: JSON.parse(e.data)});
-                
-
+                this._feeds[id].proxy.broadcastEvent(FeedSocketProxy_js_1.default.EVENTS.NEW_DATA, { data: JSON.parse(e.data) });
                 break;
         }
     }
-
     _socketSend(id, payload) {
         try {
-            if(typeof payload !== "string") {
+            if (typeof payload !== "string") {
                 payload = JSON.stringify(payload);
             }
             this.log(`<${id}> Tx: ` + payload);
-
             this._feeds[id].socket.send(payload);
-        } catch(e) {
+        }
+        catch (e) {
             // TODO 
             throw "Unhandled Socket Send Exception";
         }
     }
-
     /// NISC
     _changeState(id, newState) {
-        this.log(`<${id}> CHANGE STATE TO: ${newState.toString()}`)
-        this.broadcastEvent("FEED_STATE_CHANGE", {
-            feedId: id, 
+        this.log(`<${id}> CHANGE STATE TO: ${newState.toString()}`);
+        this.broadcastEvent(FeedSocketManager.EVENTS.FEED_STATE_CHANGE, {
+            feedId: id,
             state: newState
-        })
-
+        });
         this._feeds[id].state = newState;
     }
-
-    /// UTILS
-
-    log(msg) {
-        console.log(this.constructor.name + ":: " + msg)
-    }
-
     stopFeed(id) {
         this._feeds[id].socket.close();
         this._changeState(id, FeedSocketManager.FEED_STATE.CLOSED);
     }
-
     restartFeed(id) {
-        if(this._feeds[id].state === FeedSocketManager.FEED_STATE.CLOSED){
-            
+        if (this._feeds[id].state === FeedSocketManager.FEED_STATE.CLOSED) {
             delete this._feeds[id].socket;
             this._feeds[id].socket = this._createWebSocket(id);
-        } else {
-            throw "Cannot restart when feed socket is not in CLOSED state."
+        }
+        else {
+            throw "Cannot restart when feed socket is not in CLOSED state.";
         }
     }
-
     processEvent(event, params) {
         // Do Nothing
     }
-
+    static get EVENTS() {
+        return EVENTS;
+    }
 }
-/* harmony export (immutable) */ __webpack_exports__["a"] = FeedSocketManager;
+exports.default = FeedSocketManager;
 
 
 /***/ }),
@@ -294,7 +254,87 @@ class FeedSocketManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" 
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__ChartManager__ = __webpack_require__(5);
+
+
+
+const EVENTS = {
+    ALTER_POSITION_CHANGE: Symbol("ChartFeedProxy::" + "ALTER_POSITION_CHANGE")
+}
+
+class ChartFeedProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a{
+    constructor(chartManager, feedId) {
+        super();
+
+        this._feedId = feedId;
+        this._alive = true;
+
+        this._chartManager = chartManager;
+        chartManager.subscribe(this);
+
+
+        this._chartManager._addFeed(feedId);
+
+    }
+
+    processEvent(event, params) {
+        if(params.feedId && params.feedId === this._feedId) {
+            switch(event) {
+                case __WEBPACK_IMPORTED_MODULE_1__ChartManager__["a" /* default */].EVENTS.ALTER_POSITION_CHANGE:
+                    this.broadcastEvent(ChartFeedProxy.EVENTS.ALTER_POSITION_CHANGE, params);
+                    break;
+            }
+        }
+    }
+
+    _isAlive() {
+        return this._alive;
+    }
+
+    _validityCheck() {
+        if(!this._isAlive()) {
+            throw Error("This ChartFeedProxy is invalid.")
+        }
+    }
+
+    addDataElement(data) {
+        this._validityCheck();
+
+        this._chartManager._giveData(this._feedId, data);
+    }
+
+    setAlertPosition(position) {
+        this._chartManager._setAlertLine(this._feedId, position);
+    }
+
+    clearAll() {
+        this._validityCheck();
+
+    }
+
+    destroy() {
+        this._validityCheck();
+
+        this._chartManager._killFeed(this._feedId);
+        this._alive = false;
+    }
+
+    static get EVENTS() {
+        return EVENTS;
+    }
+}
+/* harmony export (immutable) */ __webpack_exports__["a"] = ChartFeedProxy;
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
 
 
 const SERVICE_STATUS_TIMEOUT = 2000; //milliseconds
@@ -306,7 +346,11 @@ const STATES = {
     UNAVAILABLE: Symbol("UNAVAILABLE"),
 }
 
-class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
+const EVENTS = {
+    SERVICE_UPDATE: Symbol("ServiceMonitor::SERVICE_UPDATE")
+};
+
+class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
     constructor() {
         super();
 
@@ -349,7 +393,7 @@ class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* 
                 }
             },
             complete: () => {
-                this.broadcastEvent("SERVICE_UPDATE", {
+                this.broadcastEvent(ServiceMonitor.EVENTS.SERVICE_UPDATE, {
                     state: this._state
                 })
             }
@@ -365,90 +409,378 @@ class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* 
     }
 
     _changeState(newState) {
-        console.log(`${this.constructor.name}:: CHANGE STATE: ${newState.toString()}`)
+        this.log(`CHANGE STATE: ${newState.toString()}`)
 
         this._state = newState;
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }
 /* harmony export (immutable) */ __webpack_exports__["a"] = ServiceMonitor;
 
 
 /***/ }),
-/* 3 */
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+class Logging {
+    log(msg) {
+        console.log(this.constructor.name + ":: " + msg);
+    }
+}
+exports.default = Logging;
+
+
+/***/ }),
+/* 5 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__ChartFeedProxy_js__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__Publisher__);
 
 
-class ChartFeedProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */]{
-    constructor(chartManager, feedId) {
+
+
+const AUTO_UPDATE_INTERVAL = 100;
+const EVENTS = {
+    ALTER_POSITION_CHANGE: Symbol("ChartManager::" + "ALTER_POSITION_CHANGE")
+};
+
+class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
+    constructor() {
+        super();
+
+        /// DATA FEED SETUP ///
+        this._feeds = {}
+
+        /// CHART SETUP ////
+        let parseTime = d3.timeParse("%d-%b-%y");
+        
+        this._svg = d3.select("svg");
+        this._margin = {top: 20, right: 20, bottom: 30, left: 50};
+        this._width = this._svg.attr("width") - this._margin.left - this._margin.right;
+        this._height = this._svg.attr("height") - this._margin.top - this._margin.bottom;
+
+        this._g = this._svg.append("g").attr("transform", "translate(" + this._margin.left + "," + this._margin.top + ")");
+
+
+        this._x = d3.scaleTime()
+            .rangeRound([0, this._width]);
+
+        this._y = d3.scaleLinear()
+            .rangeRound([this._height, 0]);
+
+        this._line = d3.line()
+            .x((d) => { return this._x(d.date); })
+            .y((d) => { return this._y(d.value); });
+
+
+        this._setYDomain();
+        this._setXDomain();
+
+
+        this._g.append("g")
+                .attr("class", "xAxis")
+            .attr("transform", "translate(0," + this._height + ")")
+            .call(d3.axisBottom(this._x))
+            .select(".domain")
+            .remove();
+
+        this._g.append("g")
+            .attr("class", "yAxis")
+            .call(d3.axisLeft(this._y))
+            .append("text")
+            .attr("fill", "#000")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", "0.71em")
+            .attr("text-anchor", "end")
+            .text("Value");
+
+
+        function* colourGenerator() {
+            let i = 1;
+            while (true) { 
+                yield d3.schemeCategory20[i++ % 20]; 
+            }
+        }
+        this._colourGenerator = colourGenerator();
+
+
+        // Update graph at set interval
+        this._autoUpdateInterval = setInterval(this._updateGraph.bind(this), AUTO_UPDATE_INTERVAL);
+    }
+
+    getChartFeedProxy(feedId) {
+        return new __WEBPACK_IMPORTED_MODULE_0__ChartFeedProxy_js__["a" /* default */](this, feedId);
+    }
+
+    _setYDomain() {
+
+        let dataExtents = [-1, 1];
+
+        for(let feedId in this._feeds) {
+            dataExtents[0] = d3.min([dataExtents[0], this._feeds[feedId].dataExtents[0]])
+            dataExtents[1] = d3.max([dataExtents[1], this._feeds[feedId].dataExtents[1]])
+        }
+    
+        this._y.domain([d3.min([-1, dataExtents[0]]), d3.max([1, dataExtents[1]])]);
+    }
+    _setXDomain() {
+    
+        let now = new Date();
+    
+        let yDomainLowerLimit = new Date(now);
+        yDomainLowerLimit.setSeconds(yDomainLowerLimit.getSeconds() - WINDOW_SIZE);
+    
+        let yDomainUpperLimit = new Date(now);
+        yDomainUpperLimit.setSeconds(yDomainUpperLimit.getSeconds() + 5);
+    
+    
+        this._x.domain([yDomainLowerLimit, yDomainUpperLimit]);
+    }
+
+    _updateData(id) {
+        let now = (new Date()).getTime();
+    
+        this._feeds[id].data = this._feeds[id].data.filter((elem) => {
+            return elem.date.getTime() > now - (WINDOW_SIZE * 1000)
+        });
+
+        this._feeds[id].dataExtents = d3.extent(this._feeds[id].data, (elem) => { return elem.value; })
+    }
+    
+    _updateGraph() {
+
+        for(let feedId in this._feeds) {
+            this._updateData(feedId);
+        }
+
+        this._setYDomain();
+
+        this._setXDomain();
+    
+        this._g.select(".yAxis")
+            .call(d3.axisLeft(this._y))
+    
+        this._g.select(".xAxis")
+            .call(d3.axisBottom(this._x))
+    
+    
+
+        for(let feedId in this._feeds) {
+            d3.selectAll("." + feedId)
+                .attr("d", this._line(this._feeds[feedId].data));
+        }
+
+        this._updateAlertLines();
+    }
+
+    _updateAlertLines() {
+        for(let feedId in this._feeds) {
+            this._g.select(".alertLine" + feedId)
+                .attr("y1", this._y(this._feeds[feedId].alertPosition))
+                .attr("y2", this._y(this._feeds[feedId].alertPosition))
+
+            this._g.select(".altertLineName" + feedId)
+                .attr("y", this._y(this._feeds[feedId].alertPosition))
+
+            this._g.select(".alertLineHandle" + feedId)
+                .attr("cy", this._y(this._feeds[feedId].alertPosition))
+
+
+        }
+    }
+
+    _setAlertLine(feedId, position) {
+        this._g.select(".alertLine" + feedId)
+            .attr("y1", this._y(position))
+            .attr("y2", this._y(position))
+    }
+
+    _getNextColour() { 
+        return this._colourGenerator.next().value;
+    }
+
+    _setAlertLine(feedId, position) {
+        this._feeds[feedId].alertPosition = position;
+        
+        this._g.select(".alertLine" + feedId)
+            .attr("y1", this._y(position))
+            .attr("y2", this._y(position))
+    }
+
+    _addFeed(feedId) {
+        let feedObj = {
+            data: [],
+            dataExtents: [-1, 1],
+            alertPosition: 0
+        };
+
+        let feedColour = this._getNextColour();
+
+        
+        this._g.append("path")
+            .attr("class", feedId)
+            .attr("fill", "none")
+            .attr("stroke", feedColour)
+            .attr("stroke-linejoin", "round")
+            .attr("stroke-linecap", "round")
+            .attr("stroke-width", 1.5)
+            .attr("d", this._line(feedObj.data));
+
+            let alertLineGroup = this._g.append("g")
+                .attr("class", "")
+
+            let radius = 10;
+            alertLineGroup.append("circle")
+                .attr("class", "alertLineHandle" + feedId)
+                .attr("cx", this._x(this._x.domain()[1]) + radius)
+                .attr("cy", this._y(feedObj.alertPosition))
+                .attr("r", radius)
+                .style("fill", feedColour)
+                .call(d3.drag()
+                    .on("start", () => {
+                        d3.select(".alertLineHandle" + feedId).raise().classed("active", true);
+                    })
+                    .on("drag", () => {
+                        
+                        d3.select(".alertLineHandle" + feedId)
+                        .attr("cy", d3.event.y)
+                        
+                        let newPosition = this._y.invert(d3.event.y);
+                        newPosition = d3.max([this._y.domain()[0], newPosition])
+                        newPosition = d3.min([this._y.domain()[1], newPosition])
+                        newPosition = Number(newPosition.toFixed(2))
+
+                        feedObj.alertPosition = newPosition;
+
+                        this.broadcastEvent(ChartManager.EVENTS.ALTER_POSITION_CHANGE, {
+                            feedId: feedId,
+                            newPosition: newPosition
+                        });
+
+                        this._updateAlertLines();
+                    })
+                    .on("end", () => {
+                        d3.select(".alertLineHandle" + feedId).classed("active", false);
+                    }));
+
+            alertLineGroup.append("line")
+                .attr("class", "alertLine" + feedId)
+                .attr("x1", this._x(this._x.domain()[0]))
+                .attr("y1", this._y(feedObj.alertPosition))
+                .attr("x2", this._x(this._x.domain()[1]))
+                .attr("y2", this._y(feedObj.alertPosition))
+                .style("stroke-width", 2)
+                .style("stroke", feedColour)
+                .style("fill", "none")
+
+            alertLineGroup.append("text")
+                .attr("class", "altertLineName" + feedId)
+                .attr("x", 2)
+                .attr("y", this._y(feedObj.alertPosition))
+                .text(feedId)
+
+        
+        
+        this._feeds[feedId] = feedObj;
+    }
+
+    _giveData(id, data) {
+        this._feeds[id].data.push({
+            value: data.value,
+            date: new Date(data.timestamp)
+        });
+        
+        //this._updateGraph();
+    }
+
+    _killFeed(id) {
+        delete this._feeds[id];
+
+        this._g.selectAll("." + id).remove();
+        
+        this._updateGraph();
+    }
+
+    static get EVENTS() {
+        return EVENTS;
+    }
+}
+/* harmony export (immutable) */ __webpack_exports__["a"] = ChartManager;
+
+
+/***/ }),
+/* 6 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__);
+
+
+
+const EVENTS = {
+    FEED_STATE_CHANGE: Symbol("FeedSocketProxy::" + "FEED_STATE_CHANGE"),
+    NEW_DATA: Symbol("FeedSocketProxy::" + "NEW_DATA"),
+};
+
+class FeedSocketProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
+    constructor(feedSocketManager, feedId) {
         super();
 
         this._feedId = feedId;
-        this._alive = true;
+        this._feedSocketManager = feedSocketManager;
+    }
 
-        this._chartManager = chartManager;
-        chartManager.subscribe(this);
-
-
-        this._chartManager._addFeed(feedId);
-
+    restartFeed() { 
+        this._feedSocketManager.restartFeed(this._feedId); 
+    }
+    
+    stopFeed() { 
+        this._feedSocketManager.stopFeed(this._feedId); 
     }
 
     processEvent(event, params) {
-        if(params.feedId && params.feedId === this._feedId) {
-            switch(event) {
-                case "":
+        if(params.feedId === this._feedId) {
+            switch(event){
+                case __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default.a.EVENTS.FEED_STATE_CHANGE:
+                    this.broadcastEvent(FeedSocketProxy.EVENTS.FEED_STATE_CHANGE, params)
+                    break;
+                case __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default.a.EVENTS.NEW_DATA:
+                    this.broadcastEvent(FeedSocketProxy.EVENTS.NEW_DATA, params);
                     break;
             }
         }
     }
 
-    _isAlive() {
-        return this._alive;
-    }
-
-    _validityCheck() {
-        if(!this._isAlive()) {
-            throw Error("This ChartFeedProxy is invalid.")
-        }
-    }
-
-    addDataElement(data) {
-        this._validityCheck();
-
-        this._chartManager._giveData(this._feedId, data);
-    }
-
-    setAlertPosition(position) {
-        this._chartManager._setAlertLine(this._feedId, position);
-    }
-
-    clearAll() {
-        this._validityCheck();
-
-    }
-
-    destroy() {
-        this._validityCheck();
-
-        this._chartManager._killFeed(this._feedId);
-        this._alive = false;
+    static get EVENTS() {
+        return EVENTS;
     }
 }
-/* harmony export (immutable) */ __webpack_exports__["a"] = ChartFeedProxy;
+/* harmony export (immutable) */ __webpack_exports__["default"] = FeedSocketProxy;
 
 
 /***/ }),
-/* 4 */
+/* 7 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_FeedComponent_vue__ = __webpack_require__(5);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_FeedComponent_vue__ = __webpack_require__(8);
 /* unused harmony namespace reexport */
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_160546e4_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_FeedComponent_vue__ = __webpack_require__(13);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_160546e4_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_FeedComponent_vue__ = __webpack_require__(15);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(9);
 var disposed = false
 /* script */
 
@@ -495,16 +827,12 @@ if (false) {(function () {
 
 
 /***/ }),
-/* 5 */
+/* 8 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__ = __webpack_require__(1);
-//
-//
-//
-//
-//
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__);
 //
 //
 //
@@ -566,10 +894,15 @@ const ACTIONS = {
         return {
             // Pass-Through of data/methods into the Vue namespace
             ACTIONS: ACTIONS,
-            FeedSocketManager: __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */],
+            FeedSocketManager: __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a,
 
-            alertPosition: 0
+            localAlertPosition: this.feed.alertPosition
         };
+    },
+    watch: {
+        "feed.alertPosition": function(newValue) {
+            this.localAlertPosition = newValue;
+        }
     },
     methods: {
         catchAction(action) {
@@ -584,7 +917,7 @@ const ACTIONS = {
                 case ACTIONS.RESTART:
                     break;
                 case ACTIONS.UPDATE_ALERT_POSITION:
-                    params["position"] = this.alertPosition
+                    params["position"] = this.localAlertPosition;
                     break;
                 
             }
@@ -596,17 +929,17 @@ const ACTIONS = {
         stateClasses() {
             let ret = "badge-success"
             switch(this.feed.state) {
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.RECEIVING:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.RECEIVING:
                     ret = "badge-success"
                     break;
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.IDLE:
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.OPEN:
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.OPENING:
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.REQUESTING_FEED:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.IDLE:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.OPEN:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.OPENING:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.REQUESTING_FEED:
                     ret = "badge-warning"
                     break;
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.CLOSED:
-                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__["a" /* default */].FEED_STATE.REJECTED:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.CLOSED:
+                case __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default.a.FEED_STATE.REJECTED:
                     ret = "badge-danger"
                     break;
             }
@@ -620,7 +953,7 @@ const ACTIONS = {
 
 
 /***/ }),
-/* 6 */
+/* 9 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -729,12 +1062,13 @@ function normalizeComponent (
 
 
 /***/ }),
-/* 7 */
+/* 10 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__ServiceMonitor_js__ = __webpack_require__(2);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedComponent_vue__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__ServiceMonitor_js__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedComponent_vue__ = __webpack_require__(7);
+//
 //
 //
 //
@@ -806,6 +1140,12 @@ function normalizeComponent (
                 id: id
             })
         },
+
+        catchRemoveFeed(id){
+            this.$emit("removeFeed", {
+                id: id
+            })
+        },
         catchRequestNewFeed() {
             this.$emit("requestNewFeed", {})
         },
@@ -837,17 +1177,20 @@ function normalizeComponent (
 
 
 /***/ }),
-/* 8 */
+/* 11 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__ChartManager_js__ = __webpack_require__(9);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__FeedManager_js__ = __webpack_require__(10);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__ServiceMonitor_js__ = __webpack_require__(2);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__components_FeedComponent_vue__ = __webpack_require__(4);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__View_js__ = __webpack_require__(14);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Logging__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Logging___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Logging__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__ChartManager_js__ = __webpack_require__(5);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__FeedManager_js__ = __webpack_require__(13);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__ServiceMonitor_js__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__View_js__ = __webpack_require__(16);
 
 
 
@@ -860,7 +1203,8 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 
 
 
-class Main extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
+
+class Main extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
     constructor() {
         super();
 
@@ -874,17 +1218,17 @@ class Main extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
         });
 
 
-        this._cm = new __WEBPACK_IMPORTED_MODULE_1__ChartManager_js__["a" /* default */]()
+        this._cm = new __WEBPACK_IMPORTED_MODULE_2__ChartManager_js__["a" /* default */]()
 
         
         
-        this._feedManager = new __WEBPACK_IMPORTED_MODULE_2__FeedManager_js__["a" /* default */](this._cm);
+        this._feedManager = new __WEBPACK_IMPORTED_MODULE_3__FeedManager_js__["a" /* default */](this._cm);
         this._feedManager.subscribe(this);
         this._feedManager.fetchAllFeeds();        
 
 
         // Monitoring
-        this._serviceMonitor = new __WEBPACK_IMPORTED_MODULE_3__ServiceMonitor_js__["a" /* default */]();
+        this._serviceMonitor = new __WEBPACK_IMPORTED_MODULE_4__ServiceMonitor_js__["a" /* default */]();
         this._serviceMonitor.subscribe(this)
         this._serviceMonitor.startMonitoring();
         this._serviceMonitorState = {
@@ -920,8 +1264,8 @@ class Main extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
     
     processEvent(event, params) {
         switch(event) {
-            case "UPDATED_FEED_LIST":
-                console.log(params.feedList);
+            case __WEBPACK_IMPORTED_MODULE_3__FeedManager_js__["a" /* default */].EVENTS.UPDATED_FEED_LIST:
+                this.log(params.feedList);
 
                 // AVAILABLE
                 this._feedList.available = []
@@ -939,7 +1283,7 @@ class Main extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
 
                 break;
 
-            case "SERVICE_UPDATE":
+            case __WEBPACK_IMPORTED_MODULE_4__ServiceMonitor_js__["a" /* default */].EVENTS.SERVICE_UPDATE:
                 this._serviceMonitorState.status = params.state;
                 break;
         }
@@ -949,7 +1293,7 @@ class Main extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
 let main = new Main();
 
 /// VIEW ///
-let view = new __WEBPACK_IMPORTED_MODULE_5__View_js__["a" /* default */]();
+let view = new __WEBPACK_IMPORTED_MODULE_6__View_js__["a" /* default */]();
     view.injectStateItem("feeds", main._feedManager.getViewModel());
     view.injectStateItem("feedList", main._feedList);
     view.injectStateItem("serviceMonitor", main._serviceMonitorState);
@@ -968,15 +1312,15 @@ view.on("requestNewFeed", () => {
 // Events/Action that have bubbled-up from an individual FeedComponent
 view.on("feedAction", (params) => {
     switch(params.action) {
-        case __WEBPACK_IMPORTED_MODULE_4__components_FeedComponent_vue__["a" /* default */].ACTIONS.STOP_FEED:
+        case __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__["a" /* default */].ACTIONS.STOP_FEED:
             main._stopFeed(params.id)
             break;
             
-        case __WEBPACK_IMPORTED_MODULE_4__components_FeedComponent_vue__["a" /* default */].ACTIONS.RESTART:
+        case __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__["a" /* default */].ACTIONS.RESTART:
             main._restartFeed(params.id)
             break;
 
-        case __WEBPACK_IMPORTED_MODULE_4__components_FeedComponent_vue__["a" /* default */].ACTIONS.UPDATE_ALERT_POSITION:
+        case __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__["a" /* default */].ACTIONS.UPDATE_ALERT_POSITION:
             main._setFeedAlertPosition(params.id, params.position)
             break;
     }
@@ -987,218 +1331,170 @@ view.on("feedAction", (params) => {
 
 
 /***/ }),
-/* 9 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__ChartFeedProxy_js__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher_js__ = __webpack_require__(0);
 
 
+var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
 
-class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher_js__["a" /* default */] {
-    constructor() {
-        super();
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-        /// DATA FEED SETUP ///
-        this._feeds = {}
+/**
+ * Remember mixins? Until facebook and various react utilities figure out a new solution this will
+ * make mixins work how they used to, by adding mixin methods directly to your react component.
+ *
+ * @param {function/array} mixins A reference to your mixin class
+ * @param {object} context A reference to the react component class. Usually just "this".
+ * @param {object} options An object of optional settings".
+ * @returns undefined
+ *
+ * use it like this in your constructor:
+ * mixins([mixin1, mixin2], this, {options});
+ */
 
-        /// CHART SETUP ////
-        let parseTime = d3.timeParse("%d-%b-%y");
-        
-        this._svg = d3.select("svg");
-        this._margin = {top: 20, right: 20, bottom: 30, left: 50};
-        this._width = this._svg.attr("width") - this._margin.left - this._margin.right;
-        this._height = this._svg.attr("height") - this._margin.top - this._margin.bottom;
+var Mixins = (function () {
+    function Mixins() {
+        _classCallCheck(this, Mixins);
+    }
 
-        this._g = this._svg.append("g").attr("transform", "translate(" + this._margin.left + "," + this._margin.top + ")");
+    _createClass(Mixins, [{
+        key: 'init',
+        value: function init(mixins, context, options) {
+            this.mixins = mixins;
+            this.context = context;
 
+            this.opt = {
+                warn: true,
+                mergeDuplicates: true
+            };
 
-        this._x = d3.scaleTime()
-            .rangeRound([0, this._width]);
+            this.contextMethods = Object.getOwnPropertyNames(this.context.constructor.prototype);
+            this.reactMethods = ['componentWillMount', 'componentDidMount', 'componentWillReceiveProps', 'shouldComponentUpdate', 'componentWillUpdate', 'componentDidUpdate', 'componentWillUnmount'];
 
-        this._y = d3.scaleLinear()
-            .rangeRound([this._height, 0]);
+            if (options) {
+                this.opt.warn = options.warn !== undefined ? options.warn : this.opt.warn;
+                this.opt.mergeDuplicates = options.mergeDuplicates !== undefined ? options.mergeDuplicates : this.opt.mergeDuplicates;
+            }
 
-        this._line = d3.line()
-            .x((d) => { return this._x(d.date); })
-            .y((d) => { return this._y(d.value); });
-
-
-        this._setYDomain();
-        this._setXDomain();
-
-
-        this._g.append("g")
-                .attr("class", "xAxis")
-            .attr("transform", "translate(0," + this._height + ")")
-            .call(d3.axisBottom(this._x))
-            .select(".domain")
-            .remove();
-
-        this._g.append("g")
-            .attr("class", "yAxis")
-            .call(d3.axisLeft(this._y))
-            .append("text")
-            .attr("fill", "#000")
-            .attr("transform", "rotate(-90)")
-            .attr("y", 6)
-            .attr("dy", "0.71em")
-            .attr("text-anchor", "end")
-            .text("Value");
-
-
-        function* colourGenerator() {
-            let i = 1;
-            while (true) { 
-                yield d3.schemeCategory20[i++ % 20]; 
+            if (this.mixins.constructor === Array) {
+                mixins.map(function (mixin) {
+                    this.grabMethods(mixin);
+                }, this);
+            } else if (typeof mixins === 'function' || typeof mixins === 'object') {
+                this.grabMethods(mixins);
+            } else {
+                throw 'mixins expects a function, an array, or an object. Please and thank you';
             }
         }
-        this._colourGenerator = colourGenerator();
-    }
+    }, {
+        key: 'addNewMethod',
 
-    getChartFeedProxy(feedId) {
-        return new __WEBPACK_IMPORTED_MODULE_0__ChartFeedProxy_js__["a" /* default */](this, feedId);
-    }
-
-    _setYDomain() {
-
-        let dataExtents = [-1, 1];
-
-        for(let feedId in this._feeds) {
-            dataExtents[0] = d3.min([dataExtents[0], this._feeds[feedId].dataExtents[0]])
-            dataExtents[1] = d3.max([dataExtents[1], this._feeds[feedId].dataExtents[1]])
+        /**
+         * If the method doesn't already exist on the react component, simply add this to it.
+         *
+         * @param {string} mm The name of a single mixin method
+         * @param {function} currentMixin A reference to the mixin you are adding to the react component
+         */
+        value: function addNewMethod(mm, currentMixin) {
+            if (this.mixins.prototype) {
+                this.context.constructor.prototype[mm] = this.mixins.prototype[mm];
+            } else {
+                this.context.constructor.prototype[mm] = typeof currentMixin === 'object' ? currentMixin[mm] : currentMixin.prototype[mm];
+            }
+            this.contextMethods = Object.getOwnPropertyNames(this.context.constructor.prototype);
         }
-    
-        this._y.domain([d3.min([-1, dataExtents[0]]), d3.max([1, dataExtents[1]])]);
-    }
-    _setXDomain() {
-    
-        let now = new Date();
-    
-        let yDomainLowerLimit = new Date(now);
-        yDomainLowerLimit.setSeconds(yDomainLowerLimit.getSeconds() - WINDOW_SIZE);
-    
-        let yDomainUpperLimit = new Date(now);
-        yDomainUpperLimit.setSeconds(yDomainUpperLimit.getSeconds() + 5);
-    
-    
-        this._x.domain([yDomainLowerLimit, yDomainUpperLimit]);
-    }
+    }, {
+        key: 'extendMethod',
 
-    _updateData(id) {
-        let now = (new Date()).getTime();
-    
-        this._feeds[id].data = this._feeds[id].data.filter((elem) => {
-            return elem.date.getTime() > now - (WINDOW_SIZE * 1000)
-        });
-
-        this._feeds[id].dataExtents = d3.extent(this._feeds[id].data, (elem) => { return elem.value; })
-    }
-    
-    _updateGraph() {
-        this._setYDomain();
-
-        this._setXDomain();
-    
-        this._g.select(".yAxis")
-            .call(d3.axisLeft(this._y))
-    
-        this._g.select(".xAxis")
-            .call(d3.axisBottom(this._x))
-    
-    
-
-        for(let feedId in this._feeds) {
-            d3.selectAll("." + feedId)
-                .attr("d", this._line(this._feeds[feedId].data));
-
-            this._g.select(".alertLine" + feedId)
-                .attr("y1", this._y(this._feeds[feedId].alertPosition))
-                .attr("y2", this._y(this._feeds[feedId].alertPosition))
+        /**
+         * If there is already a method on your react component that matches the mixin method create a new function that
+         * calls both methods so they can live in harmony.
+         *
+         * @param {string} mm The name of a single mixin method
+         * @param {string} cm The name of the matched react method to extend
+         * @param {function} currentMixin A reference to the mixin being added to the react method.
+         */
+        value: function extendMethod(mm, cm, currentMixin) {
+            var orig = this.context[cm];
+            var newMethod = typeof currentMixin === 'object' ? currentMixin[mm] : currentMixin.prototype[mm];
+            this.context[mm] = function () {
+                newMethod.call(this, arguments);
+                orig.call(this, arguments);
+            };
         }
-    }
+    }, {
+        key: 'grabMethods',
 
-    _setAlertLine(feedId, position) {
-        this._g.select(".alertLine" + feedId)
-            .attr("y1", this._y(position))
-            .attr("y2", this._y(position))
-    }
+        /**
+         * Takes a mixin method and sends it along the pipe
+         * @param {function} mixin A single method from your mixin
+         *
+         */
+        value: function grabMethods(mixin) {
+            var _this = this;
 
-    _getNextColour() { 
-        return this._colourGenerator.next().value;
-    }
+            var currentMixin = mixin;
+            var mixinMethods = typeof mixin === 'object' ? Object.getOwnPropertyNames(mixin) : Object.getOwnPropertyNames(mixin.prototype);
 
-    _setAlertLine(feedId, position) {
-        this._feeds[feedId].alertPosition = position;
-        
-        this._g.select(".alertLine" + feedId)
-            .attr("y1", this._y(position))
-            .attr("y2", this._y(position))
-    }
+            mixinMethods.map(function (method) {
+                if (method !== 'constructor' && method !== 'render') {
+                    _this.checkForMatch(method, currentMixin);
+                }
+            }, this);
+        }
+    }, {
+        key: 'checkForMatch',
 
-    _addFeed(feedId) {
-        let feedObj = {
-            data: [],
-            dataExtents: [-1, 1],
-            alertPosition: 0
-        };
+        /**
+         * Checks the react component to see if the method we want to add is already there.
+         * If it is a duplicate and a React lifecycle method it silently extends the React method.
+         * If it is a duplicate and not a React lifecycle method it warns you before extending the React method.
+         *
+         * @param {string} mm the mixin method to check against the react methods
+         * @param {function} currentMixin A reference to the mixin being added to the React Component.
+         */
+        value: function checkForMatch(mm, currentMixin) {
+            var _this2 = this;
 
-        
-        this._g.append("path")
-            .attr("class", feedId)
-            .attr("fill", "none")
-            .attr("stroke", this._getNextColour())
-            .attr("stroke-linejoin", "round")
-            .attr("stroke-linecap", "round")
-            .attr("stroke-width", 1.5)
-            .attr("d", this._line(feedObj.data));
+            this.contextMethods.map(function (ctxMethod) {
+                if (mm === ctxMethod) {
+                    if (_this2.reactMethods.indexOf(mm) > -1) {
+                        _this2.extendMethod(mm, ctxMethod, currentMixin);
+                    } else {
+                        if (_this2.opt.warn) {
+                            console.warn(mm + ' method already exists within the ' + _this2.context.constructor.name + ' component.');
+                        }
+                        if (_this2.opt.mergeDuplicates) {
+                            _this2.extendMethod(mm, ctxMethod, currentMixin);
+                        }
+                    }
+                }
+            });
+            this.addNewMethod(mm, currentMixin);
+        }
+    }]);
 
-        this._g.append("line")
-            .attr("class", "alertLine" + feedId)
-            .attr("x1", this._x(this._x.domain()[0]))
-            .attr("y1", this._y(feedObj.alertPosition))
-            .attr("x2", this._x(this._x.domain()[1]))
-            .attr("y2", this._y(feedObj.alertPosition))
-            .style("stroke-width", 2)
-            .style("stroke", "red")
-            .style("fill", "none")
-        
-        
-        this._feeds[feedId] = feedObj;
-    }
+    return Mixins;
+})();
 
-    _giveData(id, data) {
-        this._feeds[id].data.push({
-            value: data.value,
-            date: new Date(data.timestamp)
-        });
-    
-        this._updateData(id);
-        
-        this._updateGraph();
-    }
+var mix = new Mixins();
 
-    _killFeed(id) {
-        delete this._feeds[id];
-
-        this._g.selectAll("." + id).remove();
-        
-        this._updateGraph();
-    }
-}
-/* harmony export (immutable) */ __webpack_exports__["a"] = ChartManager;
+module.exports = mix.init.bind(mix);
 
 
 /***/ }),
-/* 10 */
+/* 13 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager_js__ = __webpack_require__(1);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Feed_js__ = __webpack_require__(12);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__ChartFeedProxy_js__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Feed_js__ = __webpack_require__(14);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__ChartFeedProxy_js__ = __webpack_require__(2);
 
 
 
@@ -1213,7 +1509,11 @@ const STATES = {
 
 }
 
-class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
+const EVENTS = {
+    UPDATED_FEED_LIST: Symbol("FeedManager::" + "UPDATED_FEED_LIST")
+}
+
+class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
     constructor(chartManager) {
         super();
 
@@ -1225,7 +1525,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
 
         this._feeds = {};
 
-        this._socketManager = new __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager_js__["a" /* default */]();
+        this._socketManager = new __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default.a();
 
         this._viewModel = { model: [] };
     }
@@ -1237,6 +1537,8 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
     addFeed(feedId) {
         if(feedId === undefined) {
             throw Error("feedId is undefined")
+        } else if(this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; }) === -1) {
+            throw Error("feedId is not AVAILABLE")
         } else if(this._feeds[feedId] !== undefined) {
             throw Error("feedId already in use.")
         }
@@ -1252,6 +1554,8 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
         newFeed.attachChart(chartProxy);
 
         this._feeds[feedId] = newFeed;
+
+        this._feedsAvailable[this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; })].isAdded = true;   
 
         this._updateViewModel();
     }
@@ -1285,7 +1589,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
     }
 
     _changeState(newState) {
-        console.log(`${this.constructor.name}:: CHANGE STATE: ${newState.toString()}`);
+        this.log(` CHANGE STATE: ${newState.toString()}`);
         this._state = newState;
     }
 
@@ -1306,7 +1610,10 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
                 if(response.state && response.state !== currentStatus) {
                     if(currentStatus === "pending") {
                         this._feedsPending.splice(this._feedsPending.findIndex((elem) => { return elem === id}), 1)
-                        this._feedsAvailable.push(id)
+                        this._feedsAvailable.push({
+                            feedId: id,
+                            isAdded: false
+                        })
 
                         this._notifyAllFeedListChanges();
                     }
@@ -1328,7 +1635,12 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
                 this._changeState(FeedManager.STATES.REQUESTING_FEED_LIST);
             },
             success: (response) => {
-                this._feedsAvailable = response;
+                this._feedsAvailable = response.map((elem) => {
+                    return {
+                        feedId: elem,
+                        isAdded: false
+                    }
+                });
 
                 this._notifyAllFeedListChanges();
             },
@@ -1362,7 +1674,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
                     this._checkFeedState(response.feedId);
                 }, 2000 );
 
-                console.log(`Pending Feed: ${response.feedId}`);
+                this.log(`Pending Feed: ${response.feedId}`);
             },
             error: () => {
                 this._changeState(FeedManager.STATES.IDLE);                
@@ -1371,7 +1683,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
     }
     
     _notifyAllFeedListChanges() {
-        this.broadcastEvent("UPDATED_FEED_LIST", {
+        this.broadcastEvent(FeedManager.EVENTS.UPDATED_FEED_LIST, {
             feedList: {
                 available: this._feedsAvailable,
                 pending: this._feedsPending
@@ -1391,77 +1703,54 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* def
                     id: feedId,
                     state: undefined,
                     rxCount: undefined,
-                    showAlert: undefined
+                    alertPosition: 0,
+                    showAlert: undefined,
+                    isAdded: false
                 });
                 idx = this._viewModel["model"].length - 1;
             }
 
             this._viewModel["model"][idx].state = this._feeds[feedId]._state;
             this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
+            this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
             this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
+            this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
         }
     }
 
     processEvent(event, params) {
         switch(event) {
-            case "STATE_CHANGE":
+            case __WEBPACK_IMPORTED_MODULE_2__Feed_js__["a" /* default */].EVENTS.STATE_CHANGE:
                 this._updateViewModel();
                 break;
         }
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }
 /* harmony export (immutable) */ __webpack_exports__["a"] = FeedManager;
 
 
 /***/ }),
-/* 11 */
+/* 14 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketProxy__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__ChartFeedProxy__ = __webpack_require__(2);
 
 
-class FeedSocketProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
-    constructor(feedSocketManager, feedId) {
-        super();
 
-        this._feedId = feedId;
-        this._feedSocketManager = feedSocketManager;
-    }
 
-    restartFeed() { 
-        this._feedSocketManager.restartFeed(this._feedId); 
-    }
-    
-    stopFeed() { 
-        this._feedSocketManager.stopFeed(this._feedId); 
-    }
-
-    processEvent(event, params) {
-        if(params.feedId === this._feedId) {
-            switch(event){
-                case "FEED_STATE_CHANGE":
-                    this.broadcastEvent("FEED_STATE_CHANGE", params)
-                    break;
-                case "NEW_DATA":
-                    this.broadcastEvent("NEW_DATA", params);
-                    break;
-            }
-        }
-    }
+const EVENTS = {
+    STATE_CHANGE: Symbol("Feed::" + "STATE_CHANGE")
 }
-/* harmony export (immutable) */ __webpack_exports__["a"] = FeedSocketProxy;
 
-
-/***/ }),
-/* 12 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher_js__ = __webpack_require__(0);
-
-
-class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */] {
+class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
     constructor(feedId) {
         super();
 
@@ -1492,6 +1781,7 @@ class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
         }
 
         this._chartProxy = chartProxy;
+        this._chartProxy.subscribe(this);
     }
 
 
@@ -1511,13 +1801,13 @@ class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
 
     processEvent(event, params) {
         switch(event){
-            case "FEED_STATE_CHANGE":
+            case __WEBPACK_IMPORTED_MODULE_1__FeedSocketProxy__["default"].EVENTS.FEED_STATE_CHANGE:
                 this._state = params.state;
 
-                this.broadcastEvent("STATE_CHANGE", {});
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
                 break;
 
-            case "NEW_DATA":
+            case __WEBPACK_IMPORTED_MODULE_1__FeedSocketProxy__["default"].EVENTS.NEW_DATA:
                 this._rxCount++;
 
                 if(params.data.value > this._alertPosition) {
@@ -1528,18 +1818,29 @@ class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher_js__["a" /* default */
 
                 this._chartProxy.addDataElement(params.data)
 
-                this.broadcastEvent("STATE_CHANGE", {});
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
 
+                break;
+
+            case __WEBPACK_IMPORTED_MODULE_2__ChartFeedProxy__["a" /* default */].EVENTS.ALTER_POSITION_CHANGE:
+                this._alertPosition = params.newPosition;
+
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
+
+                this.
                 break;
         }
     }
 
+    static get EVENTS() {
+        return EVENTS;
+    }
 }
 /* harmony export (immutable) */ __webpack_exports__["a"] = Feed;
 
 
 /***/ }),
-/* 13 */
+/* 15 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1616,7 +1917,20 @@ var render = function() {
                 _vm._v(" "),
                 _vm._m(1),
                 _vm._v(" "),
-                _vm._m(2)
+                _c("div", { staticClass: "col-sm-3" }, [
+                  _c("div", {
+                    directives: [
+                      {
+                        name: "show",
+                        rawName: "v-show",
+                        value: _vm.feed.showAlert,
+                        expression: "feed.showAlert"
+                      }
+                    ],
+                    staticClass: "glyphicon glyphicon-alert",
+                    staticStyle: { color: "red", "font-size": "25px" }
+                  })
+                ])
               ]),
               _vm._v(" "),
               _c("input", {
@@ -1624,18 +1938,18 @@ var render = function() {
                   {
                     name: "model",
                     rawName: "v-model",
-                    value: _vm.alertPosition,
-                    expression: "alertPosition"
+                    value: _vm.localAlertPosition,
+                    expression: "localAlertPosition"
                   }
                 ],
                 attrs: { type: "text" },
-                domProps: { value: _vm.alertPosition },
+                domProps: { value: _vm.localAlertPosition },
                 on: {
                   input: function($event) {
                     if ($event.target.composing) {
                       return
                     }
-                    _vm.alertPosition = $event.target.value
+                    _vm.localAlertPosition = $event.target.value
                   }
                 }
               }),
@@ -1651,21 +1965,6 @@ var render = function() {
               })
             ])
           ])
-        ]),
-        _vm._v(" "),
-        _c("div", { staticClass: "col-sm-12" }, [
-          _c("div", {
-            directives: [
-              {
-                name: "show",
-                rawName: "v-show",
-                value: _vm.feed.showAlert,
-                expression: "feed.showAlert"
-              }
-            ],
-            staticClass: "glyphicon glyphicon-alert",
-            staticStyle: { color: "red", "font-size": "71px" }
-          })
         ])
       ])
     ])
@@ -1693,17 +1992,6 @@ var staticRenderFns = [
         attrs: { type: "button", value: "???" }
       })
     ])
-  },
-  function() {
-    var _vm = this
-    var _h = _vm.$createElement
-    var _c = _vm._self._c || _h
-    return _c("div", { staticClass: "col-sm-3" }, [
-      _c("input", {
-        staticClass: "btn btn-danger",
-        attrs: { type: "button", value: "Remove" }
-      })
-    ])
   }
 ]
 render._withStripped = true
@@ -1716,15 +2004,16 @@ if (false) {
 }
 
 /***/ }),
-/* 14 */
+/* 16 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager_js__ = __webpack_require__(1);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__ServiceMonitor_js__ = __webpack_require__(2);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue__ = __webpack_require__(15);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__ServiceMonitor_js__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue__ = __webpack_require__(17);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_vue__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__components_Main_vue__ = __webpack_require__(16);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__components_Main_vue__ = __webpack_require__(18);
 
 
 
@@ -1773,20 +2062,20 @@ class View {
 
 
 /***/ }),
-/* 15 */
+/* 17 */
 /***/ (function(module, exports) {
 
 module.exports = Vue;
 
 /***/ }),
-/* 16 */
+/* 18 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_Main_vue__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_Main_vue__ = __webpack_require__(10);
 /* unused harmony namespace reexport */
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_dc97f338_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_Main_vue__ = __webpack_require__(17);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_dc97f338_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_Main_vue__ = __webpack_require__(19);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(9);
 var disposed = false
 /* script */
 
@@ -1833,7 +2122,7 @@ if (false) {(function () {
 
 
 /***/ }),
-/* 17 */
+/* 19 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1872,7 +2161,7 @@ var render = function() {
             "div",
             {
               staticClass: "panel-heading",
-              staticStyle: { width: "100%", margin: "auto" }
+              staticStyle: { width: "100%", margin: "auto", overflow: "auto" }
             },
             [
               _vm._v(
@@ -1925,26 +2214,58 @@ var render = function() {
             _c(
               "ul",
               { staticClass: "list-group" },
-              _vm._l(_vm.feedList.available, function(feedId) {
+              _vm._l(_vm.feedList.available, function(feed) {
                 return _c(
                   "li",
                   {
+                    key: feed.feedId,
                     staticClass: "list-group-item list-group-item-success",
-                    staticStyle: { margin: "auto", width: "100%" }
+                    staticStyle: {
+                      margin: "auto",
+                      width: "100%",
+                      overflow: "auto"
+                    }
                   },
                   [
                     _vm._v(
                       "\n                            " +
-                        _vm._s(feedId) +
+                        _vm._s(feed.feedId) +
                         "\n                            "
                     ),
                     _c("input", {
+                      directives: [
+                        {
+                          name: "show",
+                          rawName: "v-show",
+                          value: !feed.isAdded,
+                          expression: "!feed.isAdded"
+                        }
+                      ],
                       staticClass: "btn btn-primary",
                       staticStyle: { float: "right" },
                       attrs: { type: "button", value: "Add Feed" },
                       on: {
                         click: function($event) {
-                          _vm.catchAddFeed(feedId)
+                          _vm.catchAddFeed(feed.feedId)
+                        }
+                      }
+                    }),
+                    _vm._v(" "),
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "show",
+                          rawName: "v-show",
+                          value: feed.isAdded,
+                          expression: "feed.isAdded"
+                        }
+                      ],
+                      staticClass: "btn btn-danger",
+                      staticStyle: { float: "right" },
+                      attrs: { type: "button", value: "Remove Feed" },
+                      on: {
+                        click: function($event) {
+                          _vm.catchRemoveFeed(feed.feedId)
                         }
                       }
                     })

@@ -1,4 +1,9 @@
-import Publisher from "./Publisher.js";
+import Publisher from "./Publisher";
+import ChartManager from "./ChartManager"
+
+const EVENTS = {
+    ALTER_POSITION_CHANGE: Symbol("ChartFeedProxy::" + "ALTER_POSITION_CHANGE")
+}
 
 export default class ChartFeedProxy extends Publisher{
     constructor(chartManager, feedId) {
@@ -18,7 +23,8 @@ export default class ChartFeedProxy extends Publisher{
     processEvent(event, params) {
         if(params.feedId && params.feedId === this._feedId) {
             switch(event) {
-                case "":
+                case ChartManager.EVENTS.ALTER_POSITION_CHANGE:
+                    this.broadcastEvent(ChartFeedProxy.EVENTS.ALTER_POSITION_CHANGE, params);
                     break;
             }
         }
@@ -54,5 +60,9 @@ export default class ChartFeedProxy extends Publisher{
 
         this._chartManager._killFeed(this._feedId);
         this._alive = false;
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }

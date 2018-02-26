@@ -11,7 +11,7 @@ subprocess.Popen(kafkaStartArgs) #, stdout=subprocess.PIPE, stderr=subprocess.DE
 # Build the JS
 webpackResult = subprocess.Popen(["webpack", "--config", "Dashboard/config/webpack.config.js", "--context", "Dashboard"])
 
-# Star Node Server
+# Start Node Server
 subprocess.Popen(["node", "Dashboard/app.js"])
 
 # Start Stream Management

@@ -1,4 +1,5 @@
-import Publisher from "./Publisher.js"
+import Logging from "./Logging"
+import Publisher from "./Publisher"
 import ChartManager from "./ChartManager.js"
 import FeedManager from "./FeedManager.js"
 import ServiceMonitor from "./ServiceMonitor.js"
@@ -70,8 +71,8 @@ class Main extends Publisher {
     
     processEvent(event, params) {
         switch(event) {
-            case "UPDATED_FEED_LIST":
-                console.log(params.feedList);
+            case FeedManager.EVENTS.UPDATED_FEED_LIST:
+                this.log(params.feedList);
 
                 // AVAILABLE
                 this._feedList.available = []
@@ -89,7 +90,7 @@ class Main extends Publisher {
 
                 break;
 
-            case "SERVICE_UPDATE":
+            case ServiceMonitor.EVENTS.SERVICE_UPDATE:
                 this._serviceMonitorState.status = params.state;
                 break;
         }

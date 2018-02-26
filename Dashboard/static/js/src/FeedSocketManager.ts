@@ -1,4 +1,4 @@
-import Publisher from "./Publisher.js"
+import Publisher from "./Publisher"
 import FeedSocketProxy from './FeedSocketProxy.js'
 
 const FEED_URL = "ws://localhost:3000/feedProvider"; // MAKE GLOBAL!
@@ -13,7 +13,17 @@ const FEED_STATE = {
     CLOSED: Symbol("CLOSED")
 };
 
+const EVENTS = {
+    FEED_STATE_CHANGE: Symbol("FeedSocketManager::" + "FEED_STATE_CHANGE"),
+    NEW_DATA: Symbol("FeedSocketManager::" + "NEW_DATA"),
+    RX: Symbol("FeedSocketManager::" + "RX")
+};
+
 export default class FeedSocketManager extends Publisher {
+
+    _feeds: Array<any>;
+    log: (msg: any) => void; // TODO: CP: Avoid needing to declare the existence of logging (how to recognise mixins at compile-time?)
+
     constructor() {
         super();
 
@@ -110,7 +120,7 @@ export default class FeedSocketManager extends Publisher {
     _socketMessageReceived(id, e) {
         //this.log(`<${id}> Rx`)
 
-        this.broadcastEvent("RX", { feedId: id, value: JSON.parse(e.data).value })
+        this.broadcastEvent(FeedSocketManager.EVENTS.RX, { feedId: id, value: JSON.parse(e.data).value })
 
         switch(this._feeds[id].state) {
             case FeedSocketManager.FEED_STATE.REQUESTING_FEED:
@@ -127,7 +137,7 @@ export default class FeedSocketManager extends Publisher {
 
             case FeedSocketManager.FEED_STATE.RECEIVING:
                 //this.log(`<${id}>Got a data packet.`);
-                this._feeds[id].proxy.broadcastEvent("NEW_DATA", {data: JSON.parse(e.data)});
+                this._feeds[id].proxy.broadcastEvent(FeedSocketProxy.EVENTS.NEW_DATA, {data: JSON.parse(e.data)});
                 
 
                 break;
@@ -151,18 +161,12 @@ export default class FeedSocketManager extends Publisher {
     /// NISC
     _changeState(id, newState) {
         this.log(`<${id}> CHANGE STATE TO: ${newState.toString()}`)
-        this.broadcastEvent("FEED_STATE_CHANGE", {
+        this.broadcastEvent(FeedSocketManager.EVENTS.FEED_STATE_CHANGE, {
             feedId: id, 
             state: newState
         })
 
         this._feeds[id].state = newState;
-    }
-
-    /// UTILS
-
-    log(msg) {
-        console.log(this.constructor.name + ":: " + msg)
     }
 
     stopFeed(id) {
@@ -184,4 +188,7 @@ export default class FeedSocketManager extends Publisher {
         // Do Nothing
     }
 
+    static get EVENTS() {
+        return EVENTS;
+    }
 }

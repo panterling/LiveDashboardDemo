@@ -1,4 +1,4 @@
-import FeedSocketManager from "./FeedSocketManager.js";
+import FeedSocketManager from "./FeedSocketManager";
 import ServiceMonitor from "./ServiceMonitor.js";
 
 import Vue from 'vue'

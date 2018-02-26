@@ -13,7 +13,7 @@
             </div>
             <div class="col-sm-8">
                 <div class="panel panel-default">
-                    <div class="panel-heading" style="width: 100%; margin: auto;">
+                    <div class="panel-heading" style="width: 100%; margin: auto; overflow: auto;">
                         Pending Feeds 
                         <input type="button" value="Request New Feed" class="btn btn-success" style="float: right" @click="catchRequestNewFeed()"/>
                     </div>
@@ -33,9 +33,10 @@
                     <div class="panel-heading">Available Feeds</div>
                     <div class="panel-body">
                         <ul class="list-group">
-                            <li v-for="feedId in feedList.available" class="list-group-item list-group-item-success" style="margin: auto; width: 100%;">
-                                {{ feedId }}
-                                <input type="button" value="Add Feed" class="btn btn-primary" style="float: right;" @click="catchAddFeed(feedId)"/>
+                            <li v-for="feed in feedList.available" :key="feed.feedId" class="list-group-item list-group-item-success" style="margin: auto; width: 100%; overflow: auto;">
+                                {{ feed.feedId }}
+                                <input type="button" value="Add Feed" class="btn btn-primary" style="float: right;" v-show="!feed.isAdded" @click="catchAddFeed(feed.feedId)"/>
+                                <input type="button" value="Remove Feed" class="btn btn-danger" style="float: right;" v-show="feed.isAdded" @click="catchRemoveFeed(feed.feedId)"/>
                             </li>
                         </ul>
                     </div>
@@ -66,6 +67,12 @@
         methods: {
             catchAddFeed(id){
                 this.$emit("addFeed", {
+                    id: id
+                })
+            },
+
+            catchRemoveFeed(id){
+                this.$emit("removeFeed", {
                     id: id
                 })
             },

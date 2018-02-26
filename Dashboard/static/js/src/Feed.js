@@ -1,4 +1,10 @@
-import Publisher from "./Publisher.js";
+import Publisher from "./Publisher";
+import FeedSocketProxy from "./FeedSocketProxy"
+import ChartFeedProxy from "./ChartFeedProxy"
+
+const EVENTS = {
+    STATE_CHANGE: Symbol("Feed::" + "STATE_CHANGE")
+}
 
 export default class Feed extends Publisher {
     constructor(feedId) {
@@ -31,6 +37,7 @@ export default class Feed extends Publisher {
         }
 
         this._chartProxy = chartProxy;
+        this._chartProxy.subscribe(this);
     }
 
 
@@ -50,13 +57,13 @@ export default class Feed extends Publisher {
 
     processEvent(event, params) {
         switch(event){
-            case "FEED_STATE_CHANGE":
+            case FeedSocketProxy.EVENTS.FEED_STATE_CHANGE:
                 this._state = params.state;
 
-                this.broadcastEvent("STATE_CHANGE", {});
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
                 break;
 
-            case "NEW_DATA":
+            case FeedSocketProxy.EVENTS.NEW_DATA:
                 this._rxCount++;
 
                 if(params.data.value > this._alertPosition) {
@@ -67,10 +74,21 @@ export default class Feed extends Publisher {
 
                 this._chartProxy.addDataElement(params.data)
 
-                this.broadcastEvent("STATE_CHANGE", {});
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
 
+                break;
+
+            case ChartFeedProxy.EVENTS.ALTER_POSITION_CHANGE:
+                this._alertPosition = params.newPosition;
+
+                this.broadcastEvent(Feed.EVENTS.STATE_CHANGE, {});
+
+                this.
                 break;
         }
     }
 
+    static get EVENTS() {
+        return EVENTS;
+    }
 }

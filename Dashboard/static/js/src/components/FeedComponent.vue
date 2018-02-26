@@ -29,28 +29,23 @@
                                     <input type="button" class="btn btn-primary" value="???" />
                                 </div>
                                 <div class="col-sm-3">
-                                    <input type="button" class="btn btn-danger" value="Remove" />
+                                    <div v-show="feed.showAlert" class="glyphicon glyphicon-alert" style="color: red;font-size: 25px;"></div>
                                 </div>
                             </div>
                             
-                            <input type="text" v-model="alertPosition" />
+                            <input type="text" v-model="localAlertPosition" />
                             <input type="button" class="btn btn-primary" value="Update Alert Position" @click="catchAction(ACTIONS.UPDATE_ALERT_POSITION)"/>
                             
                         </div>
                     </div>
                 </div>
-
-                <div class="col-sm-12">
-                    <div v-show="feed.showAlert" class="glyphicon glyphicon-alert" style="color: red;font-size: 71px;"></div>
-                </div>
-
             </div>
         </div>
     </div>
 </template>
 
 <script>
-import FeedSocketManager from "../FeedSocketManager.js"
+import FeedSocketManager from "../FeedSocketManager"
 
 const ACTIONS = {
     STOP_FEED: Symbol("STOP_FEED"),
@@ -66,8 +61,13 @@ export default {
             ACTIONS: ACTIONS,
             FeedSocketManager: FeedSocketManager,
 
-            alertPosition: 0
+            localAlertPosition: this.feed.alertPosition
         };
+    },
+    watch: {
+        "feed.alertPosition": function(newValue) {
+            this.localAlertPosition = newValue;
+        }
     },
     methods: {
         catchAction(action) {
@@ -82,7 +82,7 @@ export default {
                 case ACTIONS.RESTART:
                     break;
                 case ACTIONS.UPDATE_ALERT_POSITION:
-                    params["position"] = this.alertPosition
+                    params["position"] = this.localAlertPosition;
                     break;
                 
             }

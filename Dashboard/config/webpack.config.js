@@ -1,3 +1,5 @@
+require("es6-mixins")
+
 module.exports = {
     entry: './static/js/src/main.js',
     output: {
@@ -17,10 +19,15 @@ module.exports = {
             }
             // other vue-loader options go here
           }
+        },
+        { 
+          test: /\.tsx?$/, 
+          loader: "ts-loader" 
         }
       ]
     },
     resolve: {
+      extensions: [".ts", ".js"],
       alias: {
         'vue$': 'vue/dist/vue.esm.js'
       }

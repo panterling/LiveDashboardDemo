@@ -1,5 +1,11 @@
 import ChartFeedProxy from "./ChartFeedProxy.js";
-import Publisher from "./Publisher.js";
+import Publisher from "./Publisher";
+
+
+const AUTO_UPDATE_INTERVAL = 100;
+const EVENTS = {
+    ALTER_POSITION_CHANGE: Symbol("ChartManager::" + "ALTER_POSITION_CHANGE")
+};
 
 export default class ChartManager extends Publisher {
     constructor() {
@@ -60,6 +66,10 @@ export default class ChartManager extends Publisher {
             }
         }
         this._colourGenerator = colourGenerator();
+
+
+        // Update graph at set interval
+        this._autoUpdateInterval = setInterval(this._updateGraph.bind(this), AUTO_UPDATE_INTERVAL);
     }
 
     getChartFeedProxy(feedId) {
@@ -102,6 +112,11 @@ export default class ChartManager extends Publisher {
     }
     
     _updateGraph() {
+
+        for(let feedId in this._feeds) {
+            this._updateData(feedId);
+        }
+
         this._setYDomain();
 
         this._setXDomain();
@@ -117,10 +132,24 @@ export default class ChartManager extends Publisher {
         for(let feedId in this._feeds) {
             d3.selectAll("." + feedId)
                 .attr("d", this._line(this._feeds[feedId].data));
+        }
 
+        this._updateAlertLines();
+    }
+
+    _updateAlertLines() {
+        for(let feedId in this._feeds) {
             this._g.select(".alertLine" + feedId)
                 .attr("y1", this._y(this._feeds[feedId].alertPosition))
                 .attr("y2", this._y(this._feeds[feedId].alertPosition))
+
+            this._g.select(".altertLineName" + feedId)
+                .attr("y", this._y(this._feeds[feedId].alertPosition))
+
+            this._g.select(".alertLineHandle" + feedId)
+                .attr("cy", this._y(this._feeds[feedId].alertPosition))
+
+
         }
     }
 
@@ -149,25 +178,71 @@ export default class ChartManager extends Publisher {
             alertPosition: 0
         };
 
+        let feedColour = this._getNextColour();
+
         
         this._g.append("path")
             .attr("class", feedId)
             .attr("fill", "none")
-            .attr("stroke", this._getNextColour())
+            .attr("stroke", feedColour)
             .attr("stroke-linejoin", "round")
             .attr("stroke-linecap", "round")
             .attr("stroke-width", 1.5)
             .attr("d", this._line(feedObj.data));
 
-        this._g.append("line")
-            .attr("class", "alertLine" + feedId)
-            .attr("x1", this._x(this._x.domain()[0]))
-            .attr("y1", this._y(feedObj.alertPosition))
-            .attr("x2", this._x(this._x.domain()[1]))
-            .attr("y2", this._y(feedObj.alertPosition))
-            .style("stroke-width", 2)
-            .style("stroke", "red")
-            .style("fill", "none")
+            let alertLineGroup = this._g.append("g")
+                .attr("class", "")
+
+            let radius = 10;
+            alertLineGroup.append("circle")
+                .attr("class", "alertLineHandle" + feedId)
+                .attr("cx", this._x(this._x.domain()[1]) + radius)
+                .attr("cy", this._y(feedObj.alertPosition))
+                .attr("r", radius)
+                .style("fill", feedColour)
+                .call(d3.drag()
+                    .on("start", () => {
+                        d3.select(".alertLineHandle" + feedId).raise().classed("active", true);
+                    })
+                    .on("drag", () => {
+                        
+                        d3.select(".alertLineHandle" + feedId)
+                        .attr("cy", d3.event.y)
+                        
+                        let newPosition = this._y.invert(d3.event.y);
+                        newPosition = d3.max([this._y.domain()[0], newPosition])
+                        newPosition = d3.min([this._y.domain()[1], newPosition])
+                        newPosition = Number(newPosition.toFixed(2))
+
+                        feedObj.alertPosition = newPosition;
+
+                        this.broadcastEvent(ChartManager.EVENTS.ALTER_POSITION_CHANGE, {
+                            feedId: feedId,
+                            newPosition: newPosition
+                        });
+
+                        this._updateAlertLines();
+                    })
+                    .on("end", () => {
+                        d3.select(".alertLineHandle" + feedId).classed("active", false);
+                    }));
+
+            alertLineGroup.append("line")
+                .attr("class", "alertLine" + feedId)
+                .attr("x1", this._x(this._x.domain()[0]))
+                .attr("y1", this._y(feedObj.alertPosition))
+                .attr("x2", this._x(this._x.domain()[1]))
+                .attr("y2", this._y(feedObj.alertPosition))
+                .style("stroke-width", 2)
+                .style("stroke", feedColour)
+                .style("fill", "none")
+
+            alertLineGroup.append("text")
+                .attr("class", "altertLineName" + feedId)
+                .attr("x", 2)
+                .attr("y", this._y(feedObj.alertPosition))
+                .text(feedId)
+
         
         
         this._feeds[feedId] = feedObj;
@@ -178,10 +253,8 @@ export default class ChartManager extends Publisher {
             value: data.value,
             date: new Date(data.timestamp)
         });
-    
-        this._updateData(id);
         
-        this._updateGraph();
+        //this._updateGraph();
     }
 
     _killFeed(id) {
@@ -190,5 +263,9 @@ export default class ChartManager extends Publisher {
         this._g.selectAll("." + id).remove();
         
         this._updateGraph();
+    }
+
+    static get EVENTS() {
+        return EVENTS;
     }
 }
