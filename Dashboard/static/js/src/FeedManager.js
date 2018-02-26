@@ -2,6 +2,7 @@ import Publisher from "./Publisher"
 import FeedSocketManager from "./FeedSocketManager";
 import Feed from "./Feed.js";
 import ChartFeedProxy from "./ChartFeedProxy.js";
+import AjaxManager from "./AjaxManager"
 
 const STATES = {
     IDLE: Symbol("IDLE"),
@@ -29,6 +30,8 @@ export default class FeedManager extends Publisher {
         this._feeds = {};
 
         this._socketManager = new FeedSocketManager();
+        
+        this._ajaxManager = AjaxManager.getInstance();
 
         this._viewModel = { model: [] };
     }
@@ -98,17 +101,13 @@ export default class FeedManager extends Publisher {
 
     _checkFeedState(id) {
         let currentStatus = this._feedsPending.findIndex((elem) => { return elem === id}) !== -1 ? "pending" : "available";
-        $.ajax({
-            url: "http://localhost:3000/getFeedState",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
-            data: JSON.stringify({
+
+        this._ajaxManager.request("getFeedState", {
+            url: "http://localhost:3000/getFeedState", //TODO: CP: Magic string
+            data: {
                 feedId: id
-            }),
-            beforeSend: () => {
-                //this._changeState(FeedManager.STATES.CHECKING_FEED_STATE);
             },
+            beforeSend: () => {},
             success: (response) => {
                 if(response.state && response.state !== currentStatus) {
                     if(currentStatus === "pending") {
@@ -122,18 +121,15 @@ export default class FeedManager extends Publisher {
                     }
                 }
             },
-            complete: () => {
-                //this._changeState(FeedManager.STATES.IDLE);               
-            }
+            complete: () => {},
+            error: () => {},
+
         })
     }
 
     fetchAllFeeds() {
-        $.ajax({
+        this._ajaxManager.request("getFeedList", {
             url: "http://localhost:3000/feedList",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
             beforeSend: () => {
                 this._changeState(FeedManager.STATES.REQUESTING_FEED_LIST);
             },
@@ -154,11 +150,8 @@ export default class FeedManager extends Publisher {
     }
 
     requestNewFeed() {
-        $.ajax({
+        this._ajaxManager.request("addFeed", {
             url: "http://localhost:3000/addFeed",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
             beforeSend: () => {
                 this._changeState(FeedManager.STATES.REQUESTING_NEW_FEED);
             },

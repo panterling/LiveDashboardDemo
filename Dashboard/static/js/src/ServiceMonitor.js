@@ -1,4 +1,5 @@
 import Publisher from "./Publisher";
+import AjaxManager from "./AjaxManager";
 
 const SERVICE_STATUS_TIMEOUT = 2000; //milliseconds
 const SERVICE_CHECK_INTERVAL = 3000; //milliseconds
@@ -16,6 +17,8 @@ const EVENTS = {
 export default class ServiceMonitor extends Publisher {
     constructor() {
         super();
+
+        this._ajaxManager = AjaxManager.getInstance();
 
         this._state = ServiceMonitor.STATES.OK;
 
@@ -36,11 +39,9 @@ export default class ServiceMonitor extends Publisher {
     }
 
     _checkStatus() {
-        $.ajax({
+        this._ajaxManager.request("addFeed", {
             url: "http://localhost:3000/status",
-            method: "POST",
             timeout: SERVICE_STATUS_TIMEOUT,
-
             success: (response) => {
                 this._serviceOK();
             },

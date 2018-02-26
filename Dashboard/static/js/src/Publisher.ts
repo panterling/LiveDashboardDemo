@@ -5,6 +5,8 @@ import Logging from "./Logging";
 export default class Publisher {
     _subscribers: Array<any>;
     
+    log: (msg: any) => void; // TODO: CP: Avoid needing to declare the existence of logging (how to recognise mixins at compile-time?)
+    
     constructor() {
         mixins(Logging, this);
 

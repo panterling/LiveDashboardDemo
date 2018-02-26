@@ -22,7 +22,6 @@ const EVENTS = {
 export default class FeedSocketManager extends Publisher {
 
     _feeds: Array<any>;
-    log: (msg: any) => void; // TODO: CP: Avoid needing to declare the existence of logging (how to recognise mixins at compile-time?)
 
     constructor() {
         super();

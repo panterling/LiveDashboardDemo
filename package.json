@@ -29,6 +29,7 @@
     "express": "^4.16.2",
     "express-ws": "^3.0.0",
     "jasmine-console-reporter": "^2.0.1",
+    "jquery": "^3.3.1",
     "kafka-node": "^2.4.1",
     "karma-webpack": "^2.0.9",
     "mocha": "^5.0.1",

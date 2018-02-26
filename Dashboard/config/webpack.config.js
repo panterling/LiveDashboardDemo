@@ -7,7 +7,8 @@ module.exports = {
       filename: 'Main.js'
     },
     externals: {
-      'vue':'Vue'
+      'vue':'Vue',
+      "jquery": "jQuery"
     },
     module: {
       rules: [

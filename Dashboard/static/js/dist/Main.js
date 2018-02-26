@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 11);
+/******/ 	return __webpack_require__(__webpack_require__.s = 12);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -70,7 +70,7 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var mixins = __webpack_require__(12);
+var mixins = __webpack_require__(13);
 const Logging_1 = __webpack_require__(4);
 class Publisher {
     constructor() {
@@ -335,6 +335,9 @@ class ChartFeedProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a{
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__AjaxManager__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__AjaxManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__AjaxManager__);
+
 
 
 const SERVICE_STATUS_TIMEOUT = 2000; //milliseconds
@@ -353,6 +356,8 @@ const EVENTS = {
 class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
     constructor() {
         super();
+
+        this._ajaxManager = __WEBPACK_IMPORTED_MODULE_1__AjaxManager___default.a.getInstance();
 
         this._state = ServiceMonitor.STATES.OK;
 
@@ -373,11 +378,9 @@ class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a 
     }
 
     _checkStatus() {
-        $.ajax({
+        this._ajaxManager.request("addFeed", {
             url: "http://localhost:3000/status",
-            method: "POST",
             timeout: SERVICE_STATUS_TIMEOUT,
-
             success: (response) => {
                 this._serviceOK();
             },
@@ -774,13 +777,76 @@ class FeedSocketProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a
 
 /***/ }),
 /* 7 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Publisher_1 = __webpack_require__(0);
+const $ = __webpack_require__(16);
+class AjaxManager extends Publisher_1.default {
+    constructor() {
+        if (AjaxManager._instance !== undefined) {
+            throw Error("Attempt to re-instanciate AjaxManager. It is a singleton - please use getInstance().");
+        }
+        super();
+        this._requests = [];
+    }
+    static getInstance() {
+        if (AjaxManager._instance === undefined) {
+            AjaxManager._instance = new AjaxManager();
+        }
+        return AjaxManager._instance;
+    }
+    request(id, options) {
+        if (id === undefined) {
+            throw Error("AJAX Request requires an ID");
+        }
+        else if (options === undefined) {
+            throw Error("AJAX Request requires options");
+        }
+        else if (options.url === undefined) {
+            throw Error("AJAX Request requires a URL");
+        }
+        else if (options.success === undefined) {
+            throw Error("AJAX Request requires a success callback");
+        }
+        if (this._requests[id] !== undefined) {
+            this.log(`Aborting in-progress AJAX request <${id}>`);
+            this._requests[id].abort();
+        }
+        if (!options.method) {
+            options.method = "POST";
+        }
+        if (!options.beforeSend) {
+            options.beforeSend = () => { };
+        }
+        if (!options.complete) {
+            options.complete = () => { };
+        }
+        if (!options.error) {
+            options.error = () => { };
+        }
+        if (options.data) {
+            options.data = JSON.stringify(options.data);
+        }
+        options.dataType = "json";
+        options.contentType = "application/json";
+        this._requests[id] = $.ajax(options);
+    }
+}
+exports.default = AjaxManager;
+
+
+/***/ }),
+/* 8 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_FeedComponent_vue__ = __webpack_require__(8);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_FeedComponent_vue__ = __webpack_require__(9);
 /* unused harmony namespace reexport */
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_160546e4_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_FeedComponent_vue__ = __webpack_require__(15);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(9);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_160546e4_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_FeedComponent_vue__ = __webpack_require__(17);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(10);
 var disposed = false
 /* script */
 
@@ -827,7 +893,7 @@ if (false) {(function () {
 
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -953,7 +1019,7 @@ const ACTIONS = {
 
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1062,12 +1128,12 @@ function normalizeComponent (
 
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__ServiceMonitor_js__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedComponent_vue__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedComponent_vue__ = __webpack_require__(8);
 //
 //
 //
@@ -1177,7 +1243,7 @@ function normalizeComponent (
 
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1187,10 +1253,10 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__Publisher__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__ChartManager_js__ = __webpack_require__(5);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__FeedManager_js__ = __webpack_require__(13);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__FeedManager_js__ = __webpack_require__(14);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__ServiceMonitor_js__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__ = __webpack_require__(7);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__View_js__ = __webpack_require__(16);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__components_FeedComponent_vue__ = __webpack_require__(8);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__View_js__ = __webpack_require__(18);
 
 
 
@@ -1331,7 +1397,7 @@ view.on("feedAction", (params) => {
 
 
 /***/ }),
-/* 12 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -1485,7 +1551,7 @@ module.exports = mix.init.bind(mix);
 
 
 /***/ }),
-/* 13 */
+/* 14 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1493,8 +1559,11 @@ module.exports = mix.init.bind(mix);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Publisher___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__Publisher__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__FeedSocketManager__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Feed_js__ = __webpack_require__(14);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Feed_js__ = __webpack_require__(15);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__ChartFeedProxy_js__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__AjaxManager__ = __webpack_require__(7);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__AjaxManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4__AjaxManager__);
+
 
 
 
@@ -1526,6 +1595,8 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
         this._feeds = {};
 
         this._socketManager = new __WEBPACK_IMPORTED_MODULE_1__FeedSocketManager___default.a();
+        
+        this._ajaxManager = __WEBPACK_IMPORTED_MODULE_4__AjaxManager___default.a.getInstance();
 
         this._viewModel = { model: [] };
     }
@@ -1595,17 +1666,13 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
 
     _checkFeedState(id) {
         let currentStatus = this._feedsPending.findIndex((elem) => { return elem === id}) !== -1 ? "pending" : "available";
-        $.ajax({
-            url: "http://localhost:3000/getFeedState",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
-            data: JSON.stringify({
+
+        this._ajaxManager.request("getFeedState", {
+            url: "http://localhost:3000/getFeedState", //TODO: CP: Magic string
+            data: {
                 feedId: id
-            }),
-            beforeSend: () => {
-                //this._changeState(FeedManager.STATES.CHECKING_FEED_STATE);
             },
+            beforeSend: () => {},
             success: (response) => {
                 if(response.state && response.state !== currentStatus) {
                     if(currentStatus === "pending") {
@@ -1619,18 +1686,15 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
                     }
                 }
             },
-            complete: () => {
-                //this._changeState(FeedManager.STATES.IDLE);               
-            }
+            complete: () => {},
+            error: () => {},
+
         })
     }
 
     fetchAllFeeds() {
-        $.ajax({
+        this._ajaxManager.request("getFeedList", {
             url: "http://localhost:3000/feedList",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
             beforeSend: () => {
                 this._changeState(FeedManager.STATES.REQUESTING_FEED_LIST);
             },
@@ -1651,11 +1715,8 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
     }
 
     requestNewFeed() {
-        $.ajax({
+        this._ajaxManager.request("addFeed", {
             url: "http://localhost:3000/addFeed",
-            method: "POST",
-            dataType: "json",
-            contentType: "application/json",
             beforeSend: () => {
                 this._changeState(FeedManager.STATES.REQUESTING_NEW_FEED);
             },
@@ -1734,7 +1795,7 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
 
 
 /***/ }),
-/* 14 */
+/* 15 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -1840,7 +1901,13 @@ class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
 
 
 /***/ }),
-/* 15 */
+/* 16 */
+/***/ (function(module, exports) {
+
+module.exports = jQuery;
+
+/***/ }),
+/* 17 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -2004,16 +2071,16 @@ if (false) {
 }
 
 /***/ }),
-/* 16 */
+/* 18 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__FeedSocketManager___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0__FeedSocketManager__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__ServiceMonitor_js__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue__ = __webpack_require__(17);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue__ = __webpack_require__(19);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_vue___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_vue__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__components_Main_vue__ = __webpack_require__(18);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__components_Main_vue__ = __webpack_require__(20);
 
 
 
@@ -2062,20 +2129,20 @@ class View {
 
 
 /***/ }),
-/* 17 */
+/* 19 */
 /***/ (function(module, exports) {
 
 module.exports = Vue;
 
 /***/ }),
-/* 18 */
+/* 20 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_Main_vue__ = __webpack_require__(10);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__node_modules_vue_loader_lib_selector_type_script_index_0_Main_vue__ = __webpack_require__(11);
 /* unused harmony namespace reexport */
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_dc97f338_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_Main_vue__ = __webpack_require__(19);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(9);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__node_modules_vue_loader_lib_template_compiler_index_id_data_v_dc97f338_hasScoped_false_buble_transforms_node_modules_vue_loader_lib_selector_type_template_index_0_Main_vue__ = __webpack_require__(21);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__node_modules_vue_loader_lib_runtime_component_normalizer__ = __webpack_require__(10);
 var disposed = false
 /* script */
 
@@ -2122,7 +2189,7 @@ if (false) {(function () {
 
 
 /***/ }),
-/* 19 */
+/* 21 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
