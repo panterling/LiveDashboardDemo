@@ -85,7 +85,7 @@ let feedsAvailable = [];
 let feedsPending = [];
 
 
-app.use('/static', express.static(path.join(__dirname, '/static')))
+app.use('/js', express.static(path.join(__dirname, '../front/js')))
 app.get('/', function(req, res, next){
     res.sendFile(path.join(__dirname + "/templates/index.html"));
 });

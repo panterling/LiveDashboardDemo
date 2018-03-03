@@ -4,6 +4,6 @@
         "module": "commonjs"
     },
     "include": [
-        "./Dashboard/static/js/src/*.ts"
+        "./Dashboard/front/js/src/*.ts"
     ],
 }
