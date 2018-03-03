@@ -2,7 +2,8 @@ import ChartFeedProxy from "./ChartFeedProxy.js";
 import Publisher from "./Publisher";
 
 
-const AUTO_UPDATE_INTERVAL = 100;
+const REFRESH_FPS = 25;
+const AUTO_UPDATE_INTERVAL = 1000 / REFRESH_FPS;
 const EVENTS = {
     ALTER_POSITION_CHANGE: Symbol("ChartManager::" + "ALTER_POSITION_CHANGE")
 };
@@ -13,6 +14,10 @@ export default class ChartManager extends Publisher {
 
         /// DATA FEED SETUP ///
         this._feeds = {}
+
+
+        /// BEHAVIOUR SETUP ///
+        this._inAlertDraggingMode = undefined;
 
         /// CHART SETUP ////
         let parseTime = d3.timeParse("%d-%b-%y");
@@ -109,6 +114,8 @@ export default class ChartManager extends Publisher {
         });
 
         this._feeds[id].dataExtents = d3.extent(this._feeds[id].data, (elem) => { return elem.value; })
+
+        this._resolveAlertLineHandleCollisions();
     }
     
     _updateGraph() {
@@ -143,7 +150,7 @@ export default class ChartManager extends Publisher {
                 .attr("y1", this._y(this._feeds[feedId].alertPosition))
                 .attr("y2", this._y(this._feeds[feedId].alertPosition))
 
-            this._g.select(".altertLineName" + feedId)
+            this._g.select(".alertLineName" + feedId)
                 .attr("y", this._y(this._feeds[feedId].alertPosition))
 
             this._g.select(".alertLineHandle" + feedId)
@@ -194,6 +201,7 @@ export default class ChartManager extends Publisher {
                 .attr("class", "")
 
             let radius = 10;
+            let radiusSquared = (2*radius) * (2*radius);
             alertLineGroup.append("circle")
                 .attr("class", "alertLineHandle" + feedId)
                 .attr("cx", this._x(this._x.domain()[1]) + radius)
@@ -202,17 +210,38 @@ export default class ChartManager extends Publisher {
                 .style("fill", feedColour)
                 .call(d3.drag()
                     .on("start", () => {
-                        d3.select(".alertLineHandle" + feedId).raise().classed("active", true);
+                        d3.select(".alertLineHandle" + feedId).raise()
+                        this._inAlertDraggingMode = feedId;
                     })
                     .on("drag", () => {
                         
-                        d3.select(".alertLineHandle" + feedId)
-                        .attr("cy", d3.event.y)
+                        //let newXY = this._resolveAlertLineHandleCollisions();
+                        let thisHandle = d3.select(".alertLineHandle" + feedId)
+                        let newXY = [(this._x(this._x.domain()[1]) + radius), d3.event.y]
+
+                        for(let otherFeedId in this._feeds) {
+                            if(otherFeedId !== feedId) {
+                                let otherHandle = d3.select(".alertLineHandle" + otherFeedId)
+                                let otherXY = [Number(otherHandle.attr("cx")), Number(otherHandle.attr("cy"))]
+                                let dSquared = ((newXY[0] - otherXY[0]) * (newXY[0] - otherXY[0])) + ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]));
+
+                                if(dSquared < radiusSquared && Math.abs(dSquared - radiusSquared) > 0.00001) {
+                                    this.log("HANDLE COLLISION - translate in x by: " + (radiusSquared - dSquared));
+                                    otherHandle.attr("cx", (this._x(this._x.domain()[1]) + radius) - Math.sqrt(radiusSquared - ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]))));
+                                } else {
+                                    otherHandle.attr("cx", (this._x(this._x.domain()[1]) + radius));
+                                }
+                            }
+                        }
+
+                        thisHandle.attr("cy", newXY[1])
                         
                         let newPosition = this._y.invert(d3.event.y);
                         newPosition = d3.max([this._y.domain()[0], newPosition])
                         newPosition = d3.min([this._y.domain()[1], newPosition])
                         newPosition = Number(newPosition.toFixed(2))
+
+                        this._resolveAlertLineHandleCollisions();
 
                         feedObj.alertPosition = newPosition;
 
@@ -224,7 +253,8 @@ export default class ChartManager extends Publisher {
                         this._updateAlertLines();
                     })
                     .on("end", () => {
-                        d3.select(".alertLineHandle" + feedId).classed("active", false);
+                        this._resolveAlertLineHandleCollisions();
+                        this._inAlertDraggingMode = undefined;
                     }));
 
             alertLineGroup.append("line")
@@ -238,7 +268,7 @@ export default class ChartManager extends Publisher {
                 .style("fill", "none")
 
             alertLineGroup.append("text")
-                .attr("class", "altertLineName" + feedId)
+                .attr("class", "alertLineName" + feedId)
                 .attr("x", 2)
                 .attr("y", this._y(feedObj.alertPosition))
                 .text(feedId)
@@ -248,19 +278,72 @@ export default class ChartManager extends Publisher {
         this._feeds[feedId] = feedObj;
     }
 
+    // Only implemented for the case of TWO handles. Needs more thought for N > 2
+    _resolveAlertLineHandleCollisions() {
+        return;
+        if(Object.keys(this._feeds).length < 2 ) {
+            return;
+        }
+
+        let radiusSquared = 20*20;
+        let radius = 10;
+        
+
+        let feedId = undefined;
+        if(this._inAlertDraggingMode !== undefined) {
+            feedId = this._inAlertDraggingMode;
+        } else {
+            let feedKeys = Object.keys(this._feeds);
+
+            let idx = d3.scan(Object.keys(this._feeds).map((elem) => {
+                return {
+                    feedId: elem, 
+                    cy: d3.select(".alertLineHandle" + elem).attr("cx")
+                }
+            }), (a, b) => { return b.cy - a.cy});
+
+            feedId = feedKeys[idx];
+        }
+
+        let thisHandle = d3.select(".alertLineHandle" + feedId)
+        let newXY = [Number(thisHandle.attr("cx")), Number(thisHandle.attr("cy"))]
+
+        for(let otherFeedId in this._feeds) {
+            if(otherFeedId !== feedId) {
+                let otherHandle = d3.select(".alertLineHandle" + otherFeedId)
+                let otherXY = [Number(otherHandle.attr("cx")), Number(otherHandle.attr("cy"))]
+                let dSquared = ((newXY[0] - otherXY[0]) * (newXY[0] - otherXY[0])) + ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]));
+
+                if(dSquared < radiusSquared && Math.abs(dSquared - radiusSquared) > 0.00001) {
+                    this.log("HANDLE COLLISION - translate in x by: " + (radiusSquared - dSquared));
+                
+                    otherHandle.attr("cx", this._x(this._x.domain()[1]) + radius - Math.sqrt(radiusSquared - ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]))))
+                } else if (otherXY[0] !== this._x(this._x.domain()[1]) + radius) {
+                    otherHandle.attr("cx", this._x(this._x.domain()[1]) + radius)
+                }
+            }
+        }
+
+    }
+
     _giveData(id, data) {
         this._feeds[id].data.push({
             value: data.value,
             date: new Date(data.timestamp)
         });
-        
-        //this._updateGraph();
+    
     }
 
-    _killFeed(id) {
-        delete this._feeds[id];
+    _killFeed(feedId) {
+        delete this._feeds[feedId];
 
-        this._g.selectAll("." + id).remove();
+        // Remove data line
+        this._g.selectAll("." + feedId).remove();
+
+        // Remove alert line
+        d3.select(".alertLine" + feedId).remove();
+        d3.select(".alertLineName" + feedId).remove();
+        d3.select(".alertLineHandle" + feedId).remove();
         
         this._updateGraph();
     }

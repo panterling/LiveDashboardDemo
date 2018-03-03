@@ -49,6 +49,12 @@ export default class Feed extends Publisher {
         this._socketProxy.stopFeed();
     }
 
+    removeFeed() {
+        this._socketProxy.remove();
+
+        this._chartProxy.destroy();
+    }
+
     setAlertPosition(position) {
         this._alertPosition = position;
         this._chartProxy.setAlertPosition(position);

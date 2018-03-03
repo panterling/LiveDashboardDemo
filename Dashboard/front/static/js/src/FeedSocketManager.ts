@@ -57,27 +57,32 @@ export default class FeedSocketManager extends Publisher {
     }
 
 
-    addFeed(id) {
+    addFeed(feedId) {
 
-        if(this._feeds.hasOwnProperty(id)){
-            throw "Feed ID Already In Use: " + id;
+        if(this._feeds.hasOwnProperty(feedId)){
+            throw "Feed ID Already In Use: " + feedId;
         }
         
-        let socketProxy = new FeedSocketProxy(this, id);
+        let socketProxy = new FeedSocketProxy(this, feedId);
         this.subscribe(socketProxy);
 
-        let webSocket = this._createWebSocket(id);
+        let webSocket = this._createWebSocket(feedId);
         
-        this._feeds[id] = {
+        this._feeds[feedId] = {
             state: FeedSocketManager.FEED_STATE.IDLE,
             proxy: socketProxy,
             socket: webSocket
-        }        ;
+        };
 
-        this._changeState(id, FeedSocketManager.FEED_STATE.OPENING);
+        this._changeState(feedId, FeedSocketManager.FEED_STATE.OPENING);
 
-        return this._feeds[id].proxy;
+        return this._feeds[feedId].proxy;
         
+    }
+
+    removeFeed(feedId) {
+
+        delete this._feeds[feedId];
     }
 
     /// FEED MANAGEMENT
@@ -99,14 +104,17 @@ export default class FeedSocketManager extends Publisher {
         this._changeState(id, FeedSocketManager.FEED_STATE.OPEN);
     }
 
-    _socketClosed(id, e) {
-        this.log(`<${id}> Closed: ${e.code}`);
+    _socketClosed(feedId, e) {
+        this.log(`<${feedId}> Closed: ${e.code}`);
 
-        // Manually push for socket closure
-        // Cases where the server sends ADNORMAL (1006) close event and continues sending messages as if the socket is open.
-        this._feeds[id].socket.close();
+        // If the feed as been removed, we no longer care for updates of this socket.
+        if(this._feeds[feedId]) {
+            // Manually push for socket closure
+            // Cases where the server sends ADNORMAL (1006) close event and continues sending messages as if the socket is open.
+            this._feeds[feedId].socket.close();
 
-        this._changeState(id, FeedSocketManager.FEED_STATE.CLOSED);
+            this._changeState(feedId, FeedSocketManager.FEED_STATE.CLOSED);
+        }
         
     }
 

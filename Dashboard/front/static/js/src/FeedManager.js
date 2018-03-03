@@ -66,24 +66,46 @@ export default class FeedManager extends Publisher {
         this._updateViewModel();
     }
 
-    restartFeed(id) {
-        if(this._feeds[id] == undefined) {
-            throw Error(`Feed id does not exist: ${id}`)
+    restartFeed(feedId) {
+        if(this._feeds[feedId] == undefined) {
+            throw Error(`Feed id does not exist: ${feedId}`)
         }
 
-        this._feeds[id].restartFeed();
+        this._feeds[feedId].restartFeed();
 
         this._updateViewModel();
     }
 
-    stopFeed(id) {
-        if(this._feeds[id] == undefined) {
-            throw Error(`Feed id does not exist: ${id}`)
+    stopFeed(feedId) {
+        if(this._feeds[feedId] == undefined) {
+            throw Error(`Feed id does not exist: ${feedId}`)
         }
 
-        this._feeds[id].stopFeed();
+        this._feeds[feedId].stopFeed();
 
         this._updateViewModel();
+    }
+
+    removeFeed(feedId) {
+        if(feedId === undefined) {
+            throw Error("feedId is undefined")
+        } else if(this._feeds[feedId] === undefined) {
+            throw Error("feedId has not been added - cannot remove.")
+        }
+
+        this._feeds[feedId].removeFeed();
+
+        this._feedsAvailable[this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; })].isAdded = false;   
+
+        this._feeds[feedId] = undefined;
+        this._updateViewModel();
+        delete this._feeds[feedId];
+    }
+
+    removeAllFeeds() {
+        for(let feedId in this._feeds) {
+            this.removeFeed(feedId);
+        }
     }
 
     setAlertPosition(id, position) {
@@ -190,27 +212,32 @@ export default class FeedManager extends Publisher {
 
     _updateViewModel() {
         for(let feedId in this._feeds) {
+            
             let idx = this._viewModel["model"].findIndex((elem) => {
                 return elem.id === feedId;
             });
 
-            if(idx === -1) {
-                this._viewModel["model"].push({
-                    id: feedId,
-                    state: undefined,
-                    rxCount: undefined,
-                    alertPosition: 0,
-                    showAlert: undefined,
-                    isAdded: false
-                });
-                idx = this._viewModel["model"].length - 1;
-            }
+            if(this._feeds[feedId] !== undefined) {    
+                if(idx === -1) {
+                    this._viewModel["model"].push({
+                        id: feedId,
+                        state: undefined,
+                        rxCount: undefined,
+                        alertPosition: 0,
+                        showAlert: undefined,
+                        isAdded: false
+                    });
+                    idx = this._viewModel["model"].length - 1;
+                }
 
-            this._viewModel["model"][idx].state = this._feeds[feedId]._state;
-            this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
-            this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
-            this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
-            this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
+                this._viewModel["model"][idx].state = this._feeds[feedId]._state;
+                this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
+                this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
+                this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
+                this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
+            } else {
+                this._viewModel["model"].splice(idx, 1);
+            }
         }
     }
 

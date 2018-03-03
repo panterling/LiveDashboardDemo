@@ -12,7 +12,7 @@ subprocess.Popen(kafkaStartArgs) #, stdout=subprocess.PIPE, stderr=subprocess.DE
 webpackResult = subprocess.Popen(["webpack", "--config", "Dashboard/config/webpack.config.js", "--context", "Dashboard"])
 
 # Start Node Server
-subprocess.Popen(["node", "Dashboard/app.js"])
+subprocess.Popen(["node", "Dashboard/back/app.js"])
 
 # Start Stream Management
 QueueManagerProcess = multiprocessing.Process(target = QueueManager.main)

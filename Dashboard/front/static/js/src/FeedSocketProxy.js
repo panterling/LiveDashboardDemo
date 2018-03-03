@@ -22,6 +22,11 @@ export default class FeedSocketProxy extends Publisher {
         this._feedSocketManager.stopFeed(this._feedId); 
     }
 
+    remove() {
+        this.stopFeed();
+        this._feedSocketManager.removeFeed(this._feedId); 
+    }
+
     processEvent(event, params) {
         if(params.feedId === this._feedId) {
             switch(event){

@@ -147,20 +147,23 @@ class FeedSocketManager extends Publisher_1.default {
         };
         return ws;
     }
-    addFeed(id) {
-        if (this._feeds.hasOwnProperty(id)) {
-            throw "Feed ID Already In Use: " + id;
+    addFeed(feedId) {
+        if (this._feeds.hasOwnProperty(feedId)) {
+            throw "Feed ID Already In Use: " + feedId;
         }
-        let socketProxy = new FeedSocketProxy_js_1.default(this, id);
+        let socketProxy = new FeedSocketProxy_js_1.default(this, feedId);
         this.subscribe(socketProxy);
-        let webSocket = this._createWebSocket(id);
-        this._feeds[id] = {
+        let webSocket = this._createWebSocket(feedId);
+        this._feeds[feedId] = {
             state: FeedSocketManager.FEED_STATE.IDLE,
             proxy: socketProxy,
             socket: webSocket
         };
-        this._changeState(id, FeedSocketManager.FEED_STATE.OPENING);
-        return this._feeds[id].proxy;
+        this._changeState(feedId, FeedSocketManager.FEED_STATE.OPENING);
+        return this._feeds[feedId].proxy;
+    }
+    removeFeed(feedId) {
+        delete this._feeds[feedId];
     }
     /// FEED MANAGEMENT
     _requestFeed(id) {
@@ -174,12 +177,15 @@ class FeedSocketManager extends Publisher_1.default {
         this.log(`<${id}> Opened`);
         this._changeState(id, FeedSocketManager.FEED_STATE.OPEN);
     }
-    _socketClosed(id, e) {
-        this.log(`<${id}> Closed: ${e.code}`);
-        // Manually push for socket closure
-        // Cases where the server sends ADNORMAL (1006) close event and continues sending messages as if the socket is open.
-        this._feeds[id].socket.close();
-        this._changeState(id, FeedSocketManager.FEED_STATE.CLOSED);
+    _socketClosed(feedId, e) {
+        this.log(`<${feedId}> Closed: ${e.code}`);
+        // If the feed as been removed, we no longer care for updates of this socket.
+        if (this._feeds[feedId]) {
+            // Manually push for socket closure
+            // Cases where the server sends ADNORMAL (1006) close event and continues sending messages as if the socket is open.
+            this._feeds[feedId].socket.close();
+            this._changeState(feedId, FeedSocketManager.FEED_STATE.CLOSED);
+        }
     }
     _socketError(id, e) {
         this.log(`<${id}> ERROR`);
@@ -431,9 +437,29 @@ class ServiceMonitor extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
+const PRINT_CALLING_FUNC_STACK = false;
 class Logging {
     log(msg) {
-        console.log(this.constructor.name + ":: " + msg);
+        let s = this.constructor.name + ":: " + msg;
+        if (PRINT_CALLING_FUNC_STACK) {
+            s += "\n\t";
+            s += this.getCallingCodeLine();
+        }
+        console.log(s);
+    }
+    getCallingCodeLine() {
+        let s = (new Error().stack);
+        var s1 = s.substr(this.nthIndexOf(s, "\n", 3) + 1, s.length);
+        return s1.substring(0, s1.search("\n")).trim();
+    }
+    nthIndexOf(str, pattern, n) {
+        var i = -1;
+        while (n-- && i++ < str.length) {
+            i = str.indexOf(pattern, i);
+            if (i < 0)
+                break;
+        }
+        return i;
     }
 }
 exports.default = Logging;
@@ -451,7 +477,8 @@ exports.default = Logging;
 
 
 
-const AUTO_UPDATE_INTERVAL = 100;
+const REFRESH_FPS = 25;
+const AUTO_UPDATE_INTERVAL = 1000 / REFRESH_FPS;
 const EVENTS = {
     ALTER_POSITION_CHANGE: Symbol("ChartManager::" + "ALTER_POSITION_CHANGE")
 };
@@ -462,6 +489,10 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
 
         /// DATA FEED SETUP ///
         this._feeds = {}
+
+
+        /// BEHAVIOUR SETUP ///
+        this._inAlertDraggingMode = undefined;
 
         /// CHART SETUP ////
         let parseTime = d3.timeParse("%d-%b-%y");
@@ -558,6 +589,8 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
         });
 
         this._feeds[id].dataExtents = d3.extent(this._feeds[id].data, (elem) => { return elem.value; })
+
+        this._resolveAlertLineHandleCollisions();
     }
     
     _updateGraph() {
@@ -592,7 +625,7 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
                 .attr("y1", this._y(this._feeds[feedId].alertPosition))
                 .attr("y2", this._y(this._feeds[feedId].alertPosition))
 
-            this._g.select(".altertLineName" + feedId)
+            this._g.select(".alertLineName" + feedId)
                 .attr("y", this._y(this._feeds[feedId].alertPosition))
 
             this._g.select(".alertLineHandle" + feedId)
@@ -643,6 +676,7 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
                 .attr("class", "")
 
             let radius = 10;
+            let radiusSquared = (2*radius) * (2*radius);
             alertLineGroup.append("circle")
                 .attr("class", "alertLineHandle" + feedId)
                 .attr("cx", this._x(this._x.domain()[1]) + radius)
@@ -651,17 +685,38 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
                 .style("fill", feedColour)
                 .call(d3.drag()
                     .on("start", () => {
-                        d3.select(".alertLineHandle" + feedId).raise().classed("active", true);
+                        d3.select(".alertLineHandle" + feedId).raise()
+                        this._inAlertDraggingMode = feedId;
                     })
                     .on("drag", () => {
                         
-                        d3.select(".alertLineHandle" + feedId)
-                        .attr("cy", d3.event.y)
+                        //let newXY = this._resolveAlertLineHandleCollisions();
+                        let thisHandle = d3.select(".alertLineHandle" + feedId)
+                        let newXY = [(this._x(this._x.domain()[1]) + radius), d3.event.y]
+
+                        for(let otherFeedId in this._feeds) {
+                            if(otherFeedId !== feedId) {
+                                let otherHandle = d3.select(".alertLineHandle" + otherFeedId)
+                                let otherXY = [Number(otherHandle.attr("cx")), Number(otherHandle.attr("cy"))]
+                                let dSquared = ((newXY[0] - otherXY[0]) * (newXY[0] - otherXY[0])) + ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]));
+
+                                if(dSquared < radiusSquared && Math.abs(dSquared - radiusSquared) > 0.00001) {
+                                    this.log("HANDLE COLLISION - translate in x by: " + (radiusSquared - dSquared));
+                                    otherHandle.attr("cx", (this._x(this._x.domain()[1]) + radius) - Math.sqrt(radiusSquared - ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]))));
+                                } else {
+                                    otherHandle.attr("cx", (this._x(this._x.domain()[1]) + radius));
+                                }
+                            }
+                        }
+
+                        thisHandle.attr("cy", newXY[1])
                         
                         let newPosition = this._y.invert(d3.event.y);
                         newPosition = d3.max([this._y.domain()[0], newPosition])
                         newPosition = d3.min([this._y.domain()[1], newPosition])
                         newPosition = Number(newPosition.toFixed(2))
+
+                        this._resolveAlertLineHandleCollisions();
 
                         feedObj.alertPosition = newPosition;
 
@@ -673,7 +728,8 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
                         this._updateAlertLines();
                     })
                     .on("end", () => {
-                        d3.select(".alertLineHandle" + feedId).classed("active", false);
+                        this._resolveAlertLineHandleCollisions();
+                        this._inAlertDraggingMode = undefined;
                     }));
 
             alertLineGroup.append("line")
@@ -687,7 +743,7 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
                 .style("fill", "none")
 
             alertLineGroup.append("text")
-                .attr("class", "altertLineName" + feedId)
+                .attr("class", "alertLineName" + feedId)
                 .attr("x", 2)
                 .attr("y", this._y(feedObj.alertPosition))
                 .text(feedId)
@@ -697,19 +753,72 @@ class ChartManager extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
         this._feeds[feedId] = feedObj;
     }
 
+    // Only implemented for the case of TWO handles. Needs more thought for N > 2
+    _resolveAlertLineHandleCollisions() {
+        return;
+        if(Object.keys(this._feeds).length < 2 ) {
+            return;
+        }
+
+        let radiusSquared = 20*20;
+        let radius = 10;
+        
+
+        let feedId = undefined;
+        if(this._inAlertDraggingMode !== undefined) {
+            feedId = this._inAlertDraggingMode;
+        } else {
+            let feedKeys = Object.keys(this._feeds);
+
+            let idx = d3.scan(Object.keys(this._feeds).map((elem) => {
+                return {
+                    feedId: elem, 
+                    cy: d3.select(".alertLineHandle" + elem).attr("cx")
+                }
+            }), (a, b) => { return b.cy - a.cy});
+
+            feedId = feedKeys[idx];
+        }
+
+        let thisHandle = d3.select(".alertLineHandle" + feedId)
+        let newXY = [Number(thisHandle.attr("cx")), Number(thisHandle.attr("cy"))]
+
+        for(let otherFeedId in this._feeds) {
+            if(otherFeedId !== feedId) {
+                let otherHandle = d3.select(".alertLineHandle" + otherFeedId)
+                let otherXY = [Number(otherHandle.attr("cx")), Number(otherHandle.attr("cy"))]
+                let dSquared = ((newXY[0] - otherXY[0]) * (newXY[0] - otherXY[0])) + ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]));
+
+                if(dSquared < radiusSquared && Math.abs(dSquared - radiusSquared) > 0.00001) {
+                    this.log("HANDLE COLLISION - translate in x by: " + (radiusSquared - dSquared));
+                
+                    otherHandle.attr("cx", this._x(this._x.domain()[1]) + radius - Math.sqrt(radiusSquared - ((newXY[1] - otherXY[1]) * (newXY[1] - otherXY[1]))))
+                } else if (otherXY[0] !== this._x(this._x.domain()[1]) + radius) {
+                    otherHandle.attr("cx", this._x(this._x.domain()[1]) + radius)
+                }
+            }
+        }
+
+    }
+
     _giveData(id, data) {
         this._feeds[id].data.push({
             value: data.value,
             date: new Date(data.timestamp)
         });
-        
-        //this._updateGraph();
+    
     }
 
-    _killFeed(id) {
-        delete this._feeds[id];
+    _killFeed(feedId) {
+        delete this._feeds[feedId];
 
-        this._g.selectAll("." + id).remove();
+        // Remove data line
+        this._g.selectAll("." + feedId).remove();
+
+        // Remove alert line
+        d3.select(".alertLine" + feedId).remove();
+        d3.select(".alertLineName" + feedId).remove();
+        d3.select(".alertLineHandle" + feedId).remove();
         
         this._updateGraph();
     }
@@ -753,6 +862,11 @@ class FeedSocketProxy extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a
     
     stopFeed() { 
         this._feedSocketManager.stopFeed(this._feedId); 
+    }
+
+    remove() {
+        this.stopFeed();
+        this._feedSocketManager.removeFeed(this._feedId); 
     }
 
     processEvent(event, params) {
@@ -1302,30 +1416,39 @@ class Main extends __WEBPACK_IMPORTED_MODULE_1__Publisher___default.a {
         }
     }
 
-    _addFeed(id) {
+    _addFeed(feedId) {
 
-        if(id === undefined) {
+        if(feedId === undefined) {
             throw TypeError("id is undefined");
         } 
 
-        this._feedManager.addFeed(id);        
+        this._feedManager.addFeed(feedId);        
     }
     
-    _stopFeed(id) {
-        this._feedManager.stopFeed(id);
+    _stopFeed(feedId) {
+        this._feedManager.stopFeed(feedId);
     }
     
-    _restartFeed(id) {
-        this._feedManager.restartFeed(id);
+    _restartFeed(feedId) {
+        this._feedManager.restartFeed(feedId);
     }
 
-    _setFeedAlertPosition(id, position) {
-        this._feedManager.setAlertPosition(id, position);
+    _removeFeed(feedId) {
+
+        if(feedId === undefined) {
+            throw TypeError("id is undefined");
+        } 
+
+        this._feedManager.removeFeed(feedId);        
+    }
+
+    _setFeedAlertPosition(feedId, position) {
+        this._feedManager.setAlertPosition(feedId, position);
     }
     
     
     _killAllFeeds() {
-        this._feedManager.killAll(id);
+        this._feedManager.removeAllFeeds();
     }
     
     processEvent(event, params) {
@@ -1370,8 +1493,12 @@ view.on("addFeed", (params) => {
     main._addFeed(params.id);
 })
 
-view.on("requestNewFeed", () => {
+view.on("requestNewFeed", (params) => {
     main._feedManager.requestNewFeed();
+})
+
+view.on("removeFeed", (params) => {
+    main._removeFeed(params.id);
 })
 
 
@@ -1631,24 +1758,46 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
         this._updateViewModel();
     }
 
-    restartFeed(id) {
-        if(this._feeds[id] == undefined) {
-            throw Error(`Feed id does not exist: ${id}`)
+    restartFeed(feedId) {
+        if(this._feeds[feedId] == undefined) {
+            throw Error(`Feed id does not exist: ${feedId}`)
         }
 
-        this._feeds[id].restartFeed();
+        this._feeds[feedId].restartFeed();
 
         this._updateViewModel();
     }
 
-    stopFeed(id) {
-        if(this._feeds[id] == undefined) {
-            throw Error(`Feed id does not exist: ${id}`)
+    stopFeed(feedId) {
+        if(this._feeds[feedId] == undefined) {
+            throw Error(`Feed id does not exist: ${feedId}`)
         }
 
-        this._feeds[id].stopFeed();
+        this._feeds[feedId].stopFeed();
 
         this._updateViewModel();
+    }
+
+    removeFeed(feedId) {
+        if(feedId === undefined) {
+            throw Error("feedId is undefined")
+        } else if(this._feeds[feedId] === undefined) {
+            throw Error("feedId has not been added - cannot remove.")
+        }
+
+        this._feeds[feedId].removeFeed();
+
+        this._feedsAvailable[this._feedsAvailable.findIndex((elem) => { return elem.feedId === feedId; })].isAdded = false;   
+
+        this._feeds[feedId] = undefined;
+        this._updateViewModel();
+        delete this._feeds[feedId];
+    }
+
+    removeAllFeeds() {
+        for(let feedId in this._feeds) {
+            this.removeFeed(feedId);
+        }
     }
 
     setAlertPosition(id, position) {
@@ -1755,27 +1904,32 @@ class FeedManager extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
 
     _updateViewModel() {
         for(let feedId in this._feeds) {
+            
             let idx = this._viewModel["model"].findIndex((elem) => {
                 return elem.id === feedId;
             });
 
-            if(idx === -1) {
-                this._viewModel["model"].push({
-                    id: feedId,
-                    state: undefined,
-                    rxCount: undefined,
-                    alertPosition: 0,
-                    showAlert: undefined,
-                    isAdded: false
-                });
-                idx = this._viewModel["model"].length - 1;
-            }
+            if(this._feeds[feedId] !== undefined) {    
+                if(idx === -1) {
+                    this._viewModel["model"].push({
+                        id: feedId,
+                        state: undefined,
+                        rxCount: undefined,
+                        alertPosition: 0,
+                        showAlert: undefined,
+                        isAdded: false
+                    });
+                    idx = this._viewModel["model"].length - 1;
+                }
 
-            this._viewModel["model"][idx].state = this._feeds[feedId]._state;
-            this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
-            this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
-            this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
-            this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
+                this._viewModel["model"][idx].state = this._feeds[feedId]._state;
+                this._viewModel["model"][idx].rxCount = this._feeds[feedId]._rxCount;
+                this._viewModel["model"][idx].alertPosition = this._feeds[feedId]._alertPosition;
+                this._viewModel["model"][idx].showAlert = this._feeds[feedId]._showAlert;
+                this._viewModel["model"][idx].isAdded = this._feeds[feedId] !== undefined;
+            } else {
+                this._viewModel["model"].splice(idx, 1);
+            }
         }
     }
 
@@ -1852,6 +2006,12 @@ class Feed extends __WEBPACK_IMPORTED_MODULE_0__Publisher___default.a {
 
     stopFeed() {
         this._socketProxy.stopFeed();
+    }
+
+    removeFeed() {
+        this._socketProxy.remove();
+
+        this._chartProxy.destroy();
     }
 
     setAlertPosition(position) {

@@ -2,6 +2,9 @@ import json
 import random
 from random import random as rand
 
+import numpy as np
+from scipy import signal
+
 from kafka import KafkaProducer
 import time
 import math
@@ -53,7 +56,13 @@ class ProducerThread(threading.Thread):
 
             # Compute value
             t = self.framesElapsed / self.FPS
-            val = self.baseValue + (math.sin(t) + (rand() - 0.5) * 0.2)
+
+            if rand() > 0.5:
+                sig = np.sin(2 * np.pi * t)
+                s = signal.square(2 * np.pi * 30 * t, duty=(sig + 1)/2)
+                val = self.baseValue + s
+            else:
+                val = self.baseValue + (math.sin(t) + (rand() - 0.5) * 0.2)
 
             if inAlertEvent:
                 progress = (currentAlertEventDuration / TOTAL_ALERT_EVENT_DURATION)

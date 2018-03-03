@@ -43,30 +43,39 @@ class Main extends Publisher {
         }
     }
 
-    _addFeed(id) {
+    _addFeed(feedId) {
 
-        if(id === undefined) {
+        if(feedId === undefined) {
             throw TypeError("id is undefined");
         } 
 
-        this._feedManager.addFeed(id);        
+        this._feedManager.addFeed(feedId);        
     }
     
-    _stopFeed(id) {
-        this._feedManager.stopFeed(id);
+    _stopFeed(feedId) {
+        this._feedManager.stopFeed(feedId);
     }
     
-    _restartFeed(id) {
-        this._feedManager.restartFeed(id);
+    _restartFeed(feedId) {
+        this._feedManager.restartFeed(feedId);
     }
 
-    _setFeedAlertPosition(id, position) {
-        this._feedManager.setAlertPosition(id, position);
+    _removeFeed(feedId) {
+
+        if(feedId === undefined) {
+            throw TypeError("id is undefined");
+        } 
+
+        this._feedManager.removeFeed(feedId);        
+    }
+
+    _setFeedAlertPosition(feedId, position) {
+        this._feedManager.setAlertPosition(feedId, position);
     }
     
     
     _killAllFeeds() {
-        this._feedManager.killAll(id);
+        this._feedManager.removeAllFeeds();
     }
     
     processEvent(event, params) {
@@ -111,8 +120,12 @@ view.on("addFeed", (params) => {
     main._addFeed(params.id);
 })
 
-view.on("requestNewFeed", () => {
+view.on("requestNewFeed", (params) => {
     main._feedManager.requestNewFeed();
+})
+
+view.on("removeFeed", (params) => {
+    main._removeFeed(params.id);
 })
 
 

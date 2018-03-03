@@ -149,7 +149,7 @@ app.all('/feedList', function(req, res, next){
 
 app.all('/status', function(req, res, next){
     console.log('status', req.testing);
-    res.send();
+    res.send(JSON.stringify({}));
 });
 
 
