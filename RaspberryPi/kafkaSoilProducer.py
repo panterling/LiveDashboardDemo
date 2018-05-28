@@ -13,7 +13,7 @@ import time
 import math
 import threading
 
-#import Adafruit_ADS1x15
+import Adafruit_ADS1x15
 
 FPS = 30
 ALERT_EVENT_INCREASE = 3
