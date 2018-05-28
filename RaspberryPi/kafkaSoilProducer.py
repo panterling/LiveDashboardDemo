@@ -13,7 +13,7 @@ import time
 import math
 import threading
 
-import Adafruit_ADS1x15
+#import Adafruit_ADS1x15
 
 FPS = 30
 ALERT_EVENT_INCREASE = 3
@@ -22,7 +22,7 @@ TOTAL_ALERT_EVENT_DURATION = 20 * FPS # seconds
 BROKER_URL= "192.168.1.102:9092"
 SCHEMA_REGISTRY_URL = "http://192.168.1.102:8081"
 
-AVRO_VALUE_SCHEMA = avro.load("feedSchema.avsc")
+AVRO_VALUE_SCHEMA = avro.load("../FeedServer/feedSchema.avsc")
 
 class Producer():
     def __init__(self, feedId):
@@ -33,7 +33,7 @@ class Producer():
 
         self.producer = AvroProducer({
             'bootstrap.servers': BROKER_URL, 
-            'schema.registry.url': SCHEMA_REGISTRY_URL}, 
+            'schema.registry.url': SCHEMA_REGISTRY_URL},
             default_value_schema = AVRO_VALUE_SCHEMA)
 
 
