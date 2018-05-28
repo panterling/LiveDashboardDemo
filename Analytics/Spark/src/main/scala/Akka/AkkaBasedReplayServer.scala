@@ -115,7 +115,7 @@ class FeedManagerActor(feedName: String, startDateTime: LocalDateTime, feedServe
   var lastDateTime = startDateTime
 
   // DATABASE STUFF
-  val conn = DriverManager.getConnection("jdbc:postgresql://localhost/cosmo-local", "chris", "aMEY2016")
+  val conn = DriverManager.getConnection("jdbc:postgresql://localhost/cosmo-local", "chris", "???")
 
   // AKKA
   val feed: ActorRef = context.actorOf(Props(new FeedSenderActor(feedName)), feedName)
