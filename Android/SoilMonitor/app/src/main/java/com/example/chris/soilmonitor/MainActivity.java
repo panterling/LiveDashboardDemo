@@ -105,9 +105,7 @@ public class MainActivity extends AppCompatActivity {
 
                                 new Response.Listener<String>() {
                                     @Override
-                                    public void onResponse(String response) {
-
-                                        final String responseString = response.toString();
+                                    public void onResponse(final String response) {
 
                                         runOnUiThread(new Runnable() {
 
@@ -115,17 +113,16 @@ public class MainActivity extends AppCompatActivity {
                                             public void run() {
                                                 final TextView mTextView = (TextView) findViewById(R.id.mytext);
 
-                                                mTextView.setText("Response is: " + responseString);
+                                                mTextView.setText(getResources().getString(R.string.server_response,  response));
 
-                                                String rString = responseString;
-                                                String[] parts = rString.split(",");
+                                                String[] parts = response.split(",");
 
 
                                                 long nextTime = Calendar.getInstance().getTimeInMillis();
-                                                Log.i("info", String.valueOf(nextTime) + " vs " + parts[1]);
 
                                                 series.appendData(new DataPoint(nextTime, Double.parseDouble(parts[0])), true, 100);
 
+                                                Log.i("info", String.valueOf(nextTime) + " vs " + parts[1]);
                                             }
                                         });
 
