@@ -22,7 +22,7 @@ TOTAL_ALERT_EVENT_DURATION = 20 * FPS # seconds
 BROKER_URL= "192.168.1.102:9092"
 SCHEMA_REGISTRY_URL = "http://192.168.1.102:8081"
 
-AVRO_VALUE_SCHEMA = avro.load("../FeedServer/feedSchema.avsc")
+AVRO_VALUE_SCHEMA = avro.load("../FeedServer/res/feedSchema.avsc")
 
 class Producer():
     def __init__(self, feedId):
