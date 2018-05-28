@@ -9,6 +9,8 @@ from FeedServer.kafkaProducer import ProducerThread
 REQUEST_MQ_NAME = "CMD"
 RESPONSE_MQ_NAME = "RESPONSE"
 
+EXTERNALLY_PRODUCED_FEEDS_LIST = ["feedone", "spark-output-topic", "spark-output-topic-avro"]
+
 producerList = {}
 
 txQueue = queue.Queue()
@@ -29,7 +31,9 @@ def callback(ch, method, properties, payload):
             # Validate
             # TODO
 
-            if feedId not in producerList or not producerList[feedId]["thread"].is_alive():
+
+
+            if (feedId not in EXTERNALLY_PRODUCED_FEEDS_LIST) and (feedId not in producerList or not producerList[feedId]["thread"].is_alive()):
                 producerList[feedId] = {}
 
                 newQueue = queue.Queue()

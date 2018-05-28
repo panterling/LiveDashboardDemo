@@ -1,6 +1,23 @@
 var path = require("path");
 var amqp = require('amqplib/callback_api');
 
+
+var KafkaAvro = require('kafka-avro');
+ 
+var kafkaAvro = new KafkaAvro({
+    kafkaBroker: 'localhost:9092', // http causing issues?!
+    schemaRegistry: 'http://localhost:8081',
+});
+ 
+// Query the Schema Registry for all topic-schema's
+// fetch them and evaluate them.
+kafkaAvro.init()
+    .then(function() {
+        console.log('KAFKA Ready to use');
+    });
+
+
+
 var express = require('express');
 var cors = require('cors')
 var app = express();
@@ -50,8 +67,17 @@ function sendCommandToMQ(payload) {
 
 
 // KAFKA
-var kafka = require('kafka-node');
-var ConsumerGroup = kafka.ConsumerGroup;
+//var kafka = require('kafka-node');
+//var ConsumerGroup = kafka.ConsumerGroup;
+
+let KAFKA_TOPIC_LIST = []
+/*
+new kafka.Client().zk.client.getChildren("/brokers/topics", (err, children, stats) => {
+    children.forEach(child => KAFKA_TOPIC_LIST.push(child));
+
+    console.log(KAFKA_TOPIC_LIST)
+});
+*/
 
 
 // WEB SOCKETS
@@ -71,7 +97,7 @@ app.use(function (req, res, next) {
 */
 
 let getNextFeed = function*() {
-    let FEEDS = ["feed_1", "feed_2"]
+    let FEEDS = ["feedone", "spark-output-topic-avro"]; //KAFKA_TOPIC_LIST; 
     let i = 0
     while(true) {
         yield FEEDS[i]
@@ -148,7 +174,7 @@ app.all('/feedList', function(req, res, next){
 });
 
 app.all('/status', function(req, res, next){
-    console.log('status', req.testing);
+    //console.log('status', req.testing);
     res.send(JSON.stringify({}));
 });
 
@@ -182,44 +208,61 @@ app.ws('/feedProvider', function(ws, req) {
             ws.send(response)
 
             // Start consumption
-            let client = new kafka.Client();
-            let kafkaOffset = new kafka.Offset(client);
-            
-            kafkaOffset.fetch([
-                { topic: feedId, partition: 0, time: -1, maxNum: 1 }
-            ], function (err, data) {
-                offsetVal = data[feedId][0][0]
+            kafkaAvro.getConsumer({
+                'group.id': 'librd-test',
+                'socket.keepalive.enable': true,
+                'enable.auto.commit': true,
+            })
+            // the "getConsumer()" method will return a bluebird promise.
+            .then(function(localConsumer) {
+                // Perform a consumer.connect()
+                consumer = localConsumer;
 
-                console.log("Starting at offset: " + offsetVal);
-
-                consumer = new ConsumerGroup({
-                        fromOffset: 'latest',
-                        groupId: "" + (Math.random())
-                    }, 
-                    feedId);
-
-                consumer.on('message', function (message) {
-                    if(ws.readyState === ws.OPEN) {
-        
-                        msgObj = JSON.parse(message.value)
-                        msgObj.value += Math.random()
-        
-                        ws.send(JSON.stringify(msgObj))
-                    } else {
-                        console.log("WS closed but consumer still running ARGHHHH hmmmmm")
-                    }
+                return new Promise(function (resolve, reject) {
+                    consumer.on('ready', function() {
+                        resolve(consumer);
+                    });
+                
+                    consumer.connect({}, function(err) {
+                        if (err) {
+                            console.log("KAFKA-Consumer: Unable to Connect")
+                            reject(err);
+                            return;
+                        }
+                        resolve(consumer); // depend on Promises' single resolve contract.
+                    });
                 });
+            })
+            .then(function() {
+                // Subscribe and consume.
+                var topicName = feedId;
+                console.log(`Subscribing consumer to feed: ${feedId}`)
+                consumer.subscribe([topicName]);
+                consumer.consume();
+                
+                consumer.on('disconnected', function() {
+                    console.log("Kafka Consumer disconnected!")
+                    delete consumer;
+                })
 
+                consumer.on('data', function(rawData) {
+
+                    data = rawData.parsed
+
+                    let msgObj = {
+                        timestamp: data.timestamp,
+                        value: data.value
+                    }
+                    ws.send(JSON.stringify(msgObj))
+                });
             });
         }
 
     });
 
     ws.on('close', (msg) => {
-        consumer.close(() => {
-            console.log("Closing kafka ConsumerGroup....")
-        });
-        delete consumer;
+        console.log("Closing kafka Consumer....")
+        consumer.disconnect()
     });
 
     console.log('socket', req.testing);

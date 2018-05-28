@@ -5,7 +5,10 @@ from random import random as rand
 import numpy as np
 from scipy import signal
 
-from kafka import KafkaProducer
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
+
+import io
 import time
 import math
 import threading
@@ -13,6 +16,11 @@ import threading
 FPS = 30
 ALERT_EVENT_INCREASE = 3
 TOTAL_ALERT_EVENT_DURATION = 20 * FPS # seconds
+
+BROKER_URL= "localhost:9092"
+SCHEMA_REGISTRY_URL = "http://127.0.0.1:8081"
+
+AVRO_VALUE_SCHEMA = avro.load("FeedServer/res/feedSchema.avsc")
 
 class ProducerThread(threading.Thread):
     def __init__(self, feedId, msgQueue):
@@ -23,7 +31,12 @@ class ProducerThread(threading.Thread):
         self.writeTopic = feedId
         self.msgQueue = msgQueue
 
-        self.producer = KafkaProducer(bootstrap_servers='localhost:9092')
+        self.producer = AvroProducer({
+            'bootstrap.servers': BROKER_URL, 
+            'schema.registry.url': SCHEMA_REGISTRY_URL}, 
+            default_value_schema = AVRO_VALUE_SCHEMA)
+
+
         self.FPS = FPS
         self.framesElapsed = int(1000 * rand())
         self.baseValue = round(rand() * 10, 1)
@@ -57,7 +70,7 @@ class ProducerThread(threading.Thread):
             # Compute value
             t = self.framesElapsed / self.FPS
 
-            if rand() > 0.5:
+            if False: #rand() > 0.5:
                 sig = np.sin(2 * np.pi * t)
                 s = signal.square(2 * np.pi * 30 * t, duty=(sig + 1)/2)
                 val = self.baseValue + s
@@ -78,18 +91,19 @@ class ProducerThread(threading.Thread):
 
 
             # Prepare Message and Send
-            key = int(round(time.time() * 1000))
             msg = {
-                "timestamp": key,
+                "timestamp": int(round(time.time() * 1000)),
                 "value": val
             }
 
-            msg = json.dumps(msg)
-
-            self.producer.send(self.writeTopic, key = str.encode('{}'.format(key)), value=str.encode('{}'.format(msg)))
+            self.producer.produce(topic=self.writeTopic, value=msg)
+            self.producer.flush()
 
             time.sleep(1 / self.FPS)
             self.framesElapsed += 1
 
 
         print("Producer for <{feedId}> quiting...".format(feedId = self.writeTopic))
+
+
+    
