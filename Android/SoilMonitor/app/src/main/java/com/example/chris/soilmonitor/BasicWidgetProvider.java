@@ -46,6 +46,7 @@ public class BasicWidgetProvider extends AppWidgetProvider {
             remoteViews.setOnClickPendingIntent(R.id.actionButton, pendingIntent);
 
             remoteViews.setTextViewText(R.id.textView, "Loading...");
+            remoteViews.setImageViewResource(R.id.status_icon, R.drawable.icon);
             appWidgetManager.updateAppWidget(widgetId, remoteViews);
         }
     }
@@ -60,31 +61,32 @@ public class BasicWidgetProvider extends AppWidgetProvider {
         final String url = SERVER_URL + "/soil/status";
 
         StringRequest stringRequest = new StringRequest(GET, url,
+            new Response.Listener<String>() {
+                @Override
+                public void onResponse(final String response) {
 
-
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(final String response) {
-
-                        //runOnUiThread(new Runnable() {
-
-                            //@Override
-                            //public void run() {
-                                remoteViews.setTextViewText(R.id.textView, "Fetched");
-                                appWidgetManager.updateAppWidget(widgetId, remoteViews);
-                            //}
-                        //});
-
+                    if(response.toString().equals("0")) {
+                        remoteViews.setImageViewResource(R.id.status_icon, R.drawable.droplet);
+                        remoteViews.setTextViewText(R.id.textView, "Thirsty!");
+                    } else {
+                        remoteViews.setImageViewResource(R.id.status_icon, R.drawable.chilli);
+                        remoteViews.setTextViewText(R.id.textView, "Ok!");
                     }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                remoteViews.setTextViewText(R.id.textView, "Error :'(");
-                appWidgetManager.updateAppWidget(widgetId, remoteViews);
-            }
-        });
 
-        // Add the request to the RequestQueue.
+
+                    appWidgetManager.updateAppWidget(widgetId, remoteViews);
+                }
+            },
+            new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    remoteViews.setTextViewText(R.id.textView, "Error :'(");
+                    remoteViews.setImageViewResource(R.id.status_icon, R.drawable.sadface);
+                    appWidgetManager.updateAppWidget(widgetId, remoteViews);
+                }
+            }
+        );
+
         queue.add(stringRequest);
     }
 }
