@@ -1,22 +1,17 @@
 from django.shortcuts import render
-import psycopg2
 
+import time
+import psycopg2
 
 # Create your views here.
 from django.http import HttpResponse, JsonResponse
 
-import time
+CONN_STRING = "host='cdevelop.postgres.database.azure.com' dbname='' user='' password=''"
+
 def index(request):
 
-    #return HttpResponse("Quick")
-    #print("starting")
-    #start = time.time()
-
-    # Define our connection string
-    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
-
     # get a connection, if a connect cannot be made an exception will be raised here
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(CONN_STRING)
 
     # conn.cursor will return a cursor object, you can use this cursor to perform queries
     cursor = conn.cursor()
@@ -39,8 +34,7 @@ def index(request):
 
 def hourly(request):
     
-    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(CONN_STRING)
     cursor = conn.cursor()
     
     cursor.execute("""
@@ -78,9 +72,7 @@ def hourly(request):
 
 def status(request):
 
-    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
-
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(CONN_STRING)
 
     cursor = conn.cursor()
 
