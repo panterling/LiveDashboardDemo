@@ -1,0 +1,13 @@
+{
+    "type": "record",
+    "name": "User",
+    "fields": [
+        {"name": "value", "type": "double"},
+        {"name": "moisture", "type": "double"},
+        {"name": "temperature", "type": "double"},
+        {"name": "timestamp",  "type": {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }}
+    ]
+}
