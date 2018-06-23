@@ -12,6 +12,10 @@ node_modules/
 .idea/
 
 
+# Documentation temp files
+Documentation/.~lock.*
+
+
 
 # Private Info
 Android/SoilMonitor/app/src/main/res/raw/config.properties

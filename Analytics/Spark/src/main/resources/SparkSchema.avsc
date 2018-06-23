@@ -1,0 +1,8 @@
+{
+    "type": "record",
+    "name": "SparkMessage",
+    "fields": [
+        {"name": "value", "type": "double"},
+        {"name": "timestamp",  "type": "long"}
+    ]
+}

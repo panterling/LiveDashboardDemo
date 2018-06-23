@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">SoilMonitor</string>
+    <string name="server_response">Response: %1$s!</string>
 </resources>
