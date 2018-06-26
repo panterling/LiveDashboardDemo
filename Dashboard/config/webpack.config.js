@@ -1,9 +1,9 @@
 require("es6-mixins")
-
+console.log(__dirname + '/../front/js/dist')
 module.exports = {
     entry: './front/js/src/main.js',
     output: {
-      path: __dirname + '/../js/dist',
+      path: __dirname + '/../front/js/dist',
       filename: 'Main.js'
     },
     externals: {

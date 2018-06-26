@@ -1,0 +1,90 @@
+from django.shortcuts import render
+import psycopg2
+import redis
+
+
+# Create your views here.
+from django.http import HttpResponse, JsonResponse
+
+import time
+def index_old(request):
+    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
+
+    conn = psycopg2.connect(conn_string)
+
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM soilapp ORDER BY timestamp DESC LIMIT 1")
+    
+    records = cursor.fetchall()
+
+
+    ret = str(records[0][0]) + "," + str(records[0][1])
+
+    return HttpResponse(ret)
+
+
+def hourly(request):
+    
+    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
+    conn = psycopg2.connect(conn_string)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+    
+    records = cursor.fetchall()
+    
+    ret = []
+    for row in records:
+        ret.append({
+            "value": row[0],
+            "label": row[2],
+            "hour": row[1],
+        })
+
+    return JsonResponse(ret, safe = False)
+
+def daily(request):
+    r = redis.StrictRedis(host='localhost', port=6380, db=0)
+
+    val = r.get("temp_daily")
+
+    return HttpResponse(val)
+    
+
+
+
+def status(request):
+
+    conn_string = "host='cdevelop.postgres.database.azure.com' dbname='soil' user='chris@cdevelop' password='cDEV2017'"
+
+    conn = psycopg2.connect(conn_string)
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT
+    	avg(value)
+    FROM
+    	feedone
+    WHERE
+    	TO_TIMESTAMP(timestamp / 1000) BETWEEN now() - interval '1 hour' AND now()
+    """)
+    
+    records = cursor.fetchall()
+
+    value = records[0][0]
+
+    if value > 10500:
+        ret = "0" # Thirsty
+    else:
+        ret = "1"
+
+    return HttpResponse(ret)
+
+def index(request):
+    r = redis.StrictRedis(host='localhost', port=6380, db=0)
+
+    val = r.get("temp_realtime")
+
+    return HttpResponse(val)

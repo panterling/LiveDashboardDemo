@@ -1,23 +1,21 @@
-package com.example.chris.soilmonitor;
+package com.example.chris.soilmonitor.Widget;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
 import android.widget.RemoteViews;
-import android.widget.TextView;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
-import com.jjoe64.graphview.series.DataPoint;
+import com.example.chris.soilmonitor.R;
 
-import java.util.Calendar;
-import java.util.Random;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static com.android.volley.Request.Method.GET;
 
@@ -65,15 +63,19 @@ public class BasicWidgetProvider extends AppWidgetProvider {
                 @Override
                 public void onResponse(final String response) {
 
+                    String newText = new SimpleDateFormat("HH:mm").format(new Date());
+                    newText += "\n";
+
                     if(response.toString().equals("0")) {
                         remoteViews.setImageViewResource(R.id.status_icon, R.drawable.droplet);
-                        remoteViews.setTextViewText(R.id.textView, "Thirsty!");
+                        newText += "Thirsty!";
                     } else {
                         remoteViews.setImageViewResource(R.id.status_icon, R.drawable.chilli);
-                        remoteViews.setTextViewText(R.id.textView, "Ok!");
+                        newText += "Ok!";
                     }
 
 
+                    remoteViews.setTextViewText(R.id.textView, newText);
                     appWidgetManager.updateAppWidget(widgetId, remoteViews);
                 }
             },

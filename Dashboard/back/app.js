@@ -5,8 +5,8 @@ var amqp = require('amqplib/callback_api');
 var KafkaAvro = require('kafka-avro');
  
 var kafkaAvro = new KafkaAvro({
-    kafkaBroker: 'localhost:9092', // http causing issues?!
-    schemaRegistry: 'http://localhost:8081',
+    kafkaBroker: '209.97.137.81:9092', // http causing issues?!
+    schemaRegistry: 'http://209.97.137.81:8081',
 });
  
 // Query the Schema Registry for all topic-schema's
@@ -97,7 +97,7 @@ app.use(function (req, res, next) {
 */
 
 let getNextFeed = function*() {
-    let FEEDS = ["feedone", "spark-output-topic-avro"]; //KAFKA_TOPIC_LIST; 
+    let FEEDS = ["soilapp", "spark-output-topic-avro"]; //KAFKA_TOPIC_LIST; 
     let i = 0
     while(true) {
         yield FEEDS[i]
@@ -249,10 +249,14 @@ app.ws('/feedProvider', function(ws, req) {
 
                     data = rawData.parsed
 
-                    let msgObj = {
-                        timestamp: data.timestamp,
-                        value: data.value
+                    let msgObj = {};
+                    
+                    for(let key in data) { 
+                        if(data.hasOwnProperty(key)) {
+                            msgObj[key] = data[key]
+                        }
                     }
+
                     ws.send(JSON.stringify(msgObj))
                 });
             });

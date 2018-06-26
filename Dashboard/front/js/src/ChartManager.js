@@ -182,7 +182,8 @@ export default class ChartManager extends Publisher {
         let feedObj = {
             data: [],
             dataExtents: [-1, 1],
-            alertPosition: 0
+            alertPosition: 0,
+            _currentDataKey: "moisture" // CP: Should be dynamic & user-specified
         };
 
         let feedColour = this._getNextColour();
@@ -328,7 +329,7 @@ export default class ChartManager extends Publisher {
 
     _giveData(id, data) {
         this._feeds[id].data.push({
-            value: data.value,
+            value: data[this._feeds[id]._currentDataKey],
             date: new Date(data.timestamp)
         });
     

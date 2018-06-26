@@ -1,0 +1,227 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+    <style>
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        .graph .axis {
+            stroke-width: 1;
+        }
+
+        .graph .axis .tick line {
+            stroke: white;
+        }
+
+        .graph .axis .tick text {
+            fill: white;
+            font-size: 0.6em;
+        }
+
+        .graph .axis .domain {
+            fill: none;
+            stroke: white;
+        }
+
+        .graph .group {
+            fill: none;
+            stroke: white;
+            stroke-width: 1.5;
+        }
+
+        .area {
+            fill: url(#temperature-gradient);
+            stroke-width: 05px;
+        }
+
+        </style>
+</head>
+<body>
+<div class="graph"></div>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+
+	if( Android === undefined) {
+		var Android = {
+			getWidth: function() {
+				return 300;
+			}
+		}
+	}
+
+        var limit = 60 * 1,
+            duration = 750,
+            now = new Date(Date.now() - duration)
+
+        var width = Android.getWidth(),
+            height = 40
+
+        var data = {
+                value: 0,
+                data: []
+        }
+
+        var x = d3.time.scale()
+            .domain([now - (limit - 2), now - duration])
+            .range([0, width])
+
+        var y = d3.scale.linear()
+            .domain([Android.getSensorMinThreshold(), Android.getSensorMaxThreshold()])
+            .range([height, 0])
+
+    var yTemperature = d3.scale.linear()
+            .domain([0, 45])
+            .range([height, 0])
+
+
+    var  line = d3.svg.area()
+        .x(function(d) { return x(d.timestamp); })
+        .y0(height)
+        .y1(function(d) { return y(d.moisture); });
+
+    var temperatureLine = d3.svg.line()
+        .interpolate('basis')
+        .x(function(d, i) {
+            return x(new Date(d.timestamp));
+        })
+        .y(function(d) {
+            return yTemperature(d.temperature)
+        })
+
+
+
+        var svg = d3.select('.graph').append('svg')
+            .attr('class', 'chart')
+            .attr('width', width)
+            .attr('height', height + 50)
+
+        var axis = svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(x.axis = d3.svg.axis().scale(x).orient('bottom'))
+
+        var paths = svg.append('g')
+
+
+        svg.append("linearGradient")
+      .attr("id", "temperature-gradient")
+      .attr("gradientUnits", "userSpaceOnUse")
+      .attr("x1", 0).attr("y1", y(Android.getSensorMinThreshold()))
+      .attr("x2", 0).attr("y2", y(Android.getSensorMaxThreshold()))
+    .selectAll("stop")
+      .data([
+        {offset: "0%", color: "rgba(191, 140, 45, 0.7)"},
+        {offset: "25%", color: "rgba(255, 189, 58, 0.7)"},
+        {offset: "50%", color: "rgba(255, 229, 178, 0.7)"}
+      ])
+    .enter().append("stop")
+      .attr("offset", function(d) { return d.offset; })
+      .attr("stop-color", function(d) { return d.color; });
+
+
+    data.path =
+	[
+		paths.append('path').data([data.data])
+	        .attr('class', "area")
+		,
+		paths.append('path')
+	        .data([data.data])
+		    .style("fill", "none")
+		    .style("stroke", "steelblue")
+	]
+
+
+        function tick() {
+        	now = new Date()
+
+            // Shift domain
+            x.domain([now - (limit - 2) * duration, now - duration])
+
+            // Slide x-axis left
+            axis.transition()
+                .duration(duration)
+                .ease('linear')
+                .call(x.axis)
+
+            // Slide paths left
+            data.path[0].transition()
+                .duration(duration)
+                .ease('linear')
+		        .attr('d', line)
+
+            data.path[1].transition()
+                    .duration(duration)
+                    .ease('linear')
+                    .attr('d', temperatureLine)
+
+        }
+
+        setInterval(tick, 500)
+
+
+       let lastRenderedTimestamp = 0;
+
+	setInterval(() => {
+
+	    if(Android.realtimeRequestsActive())
+	    {
+
+            $.ajax({
+                url: Android.getAPIURL(),
+                success: (response) => {
+                    console.log(response)
+                    let localData = JSON.parse(response);
+                    let timestamp = localData["timestamp"];
+                    let xDomainMin = (new Date(x.domain()[0])).getTime();
+
+                    if(timestamp < xDomainMin) {
+                        console.log(`Ignoring realtime timestamp: ${timestamp} less than ${xDomainMin}`);
+                    } else if(timestamp <= lastRenderedTimestamp) {
+                        console.log(`Ignoring old/repeated timestamp: ${timestamp}`);
+                    } else {
+                        console.log(`Accepted timestamp: ${timestamp}`);
+
+
+                        let moistureValue = localData["moisture"];
+                        let temperatureValue = localData["temperature"];
+                        moistureValue = Number(Android.getSensorMinThreshold()) + (Number(Android.getSensorMaxThreshold()) - Number(moistureValue))
+
+                        console.log(moistureValue)
+
+
+                        data.data.push({
+                            moisture: moistureValue,
+                            temperature: temperatureValue,
+                            timestamp: timestamp
+                        })
+
+                        // Limit maximum amount of data retained (hack that disregards x-domain)
+                        if(data.data.length > 100) {
+                            data.data.splice(0, (data.data.length - 100))
+                        }
+
+                        data.path[0].attr('d', line)
+                        data.path[1].attr('d', temperatureLine)
+                        Android.latestValueCallback("" + Number(localData["moisture"]),
+                        "" + Number(localData["temperature"]),
+                        "" + Number(localData["min"]),
+                        "" + Number(localData["max"]),
+                        "" + timestamp)
+
+                        lastRenderedTimestamp = timestamp;
+                    }
+                },
+                error: (localData) => {},
+            })
+		}
+	}, 500)
+
+        </script>
+</body>
+</html>

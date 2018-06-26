@@ -1,60 +1,41 @@
 from django.shortcuts import render
-
-import time
 import psycopg2
+import redis
+
 
 # Create your views here.
 from django.http import HttpResponse, JsonResponse
 
-CONN_STRING = "host='cdevelop.postgres.database.azure.com' dbname='' user='' password=''"
+import time
 
-def index(request):
-
-    # get a connection, if a connect cannot be made an exception will be raised here
-    conn = psycopg2.connect(CONN_STRING)
-
-    # conn.cursor will return a cursor object, you can use this cursor to perform queries
-    cursor = conn.cursor()
-
-    #print("connected")
-    cursor.execute("SELECT * FROM feedone ORDER BY timestamp DESC LIMIT 1")
-    
-    #print("executed")
-    # retrieve the records from the database
-    records = cursor.fetchall()
-
-
-    #print("fetched")
-    ret = str(records[0][0]) + "," + str(records[0][1])
-
-    #print("Done: {}".format(time.time() - start))
-
-    return HttpResponse(ret)
 
 
 def hourly(request):
     
-    conn = psycopg2.connect(CONN_STRING)
+    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
+    conn = psycopg2.connect(conn_string)
     cursor = conn.cursor()
     
     cursor.execute("""
+        COMMIT;
+        BEGIN;
+        SET timezone TO 'UTC-1:00';
+
         SELECT
-    	--date_part('hour', TO_TIMESTAMP(timestamp / 1000))
-    	avg(value)
-    	--, value
-    	--, TO_TIMESTAMP(timestamp / 1000)
-    	, date_part('hour', TO_TIMESTAMP(timestamp / 1000))
-    	, date_part('hour', TO_TIMESTAMP(timestamp / 1000))  || ':00' as label
-    	--, date_part('day', TO_TIMESTAMP(timestamp / 1000))::TEXT || lpad(date_part('hour', TO_TIMESTAMP(timestamp / 1000))::TEXT, 2, '0')
+        avg(moisture)
+        , date_part('hour', timestamp)
+        , to_char(timestamp, 'hh AM') as label
     FROM
-    	feedone
+        soilapp
     WHERE
-    	TO_TIMESTAMP(timestamp / 1000) BETWEEN now() - interval '12 hours' AND now()
+        timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours')
     GROUP BY
-    	date_part('hour', TO_TIMESTAMP(timestamp / 1000))
-    	, date_part('day', TO_TIMESTAMP(timestamp / 1000))::TEXT || lpad(date_part('hour', TO_TIMESTAMP(timestamp / 1000))::TEXT, 2, '0')
+        date_part('hour', timestamp)
+        , to_char(timestamp, 'hh AM')
+        , date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     ORDER BY
-    	date_part('day', TO_TIMESTAMP(timestamp / 1000))::TEXT || lpad(date_part('hour', TO_TIMESTAMP(timestamp / 1000))::TEXT, 2, '0') ASC
+        date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
+
     """)
     
     records = cursor.fetchall()
@@ -62,17 +43,28 @@ def hourly(request):
     ret = []
     for row in records:
         ret.append({
-            "value": row[0],
+            "moisture": row[0],
             "label": row[2],
             "hour": row[1],
         })
 
     return JsonResponse(ret, safe = False)
 
+def daily(request):
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    val = r.get("temp_daily")
+
+    return HttpResponse(val)
+    
+
+
 
 def status(request):
 
-    conn = psycopg2.connect(CONN_STRING)
+    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
+
+    conn = psycopg2.connect(conn_string)
 
     cursor = conn.cursor()
 
@@ -80,13 +72,25 @@ def status(request):
     SELECT
     	avg(value)
     FROM
-    	feedone
+    	soilapp
     WHERE
-    	TO_TIMESTAMP(timestamp / 1000) BETWEEN now() - interval '1 hour' AND now()
+    	timestamp BETWEEN now() - interval '1 hour' AND now()
     """)
     
     records = cursor.fetchall()
 
-    ret = str(records[0][0])
+    value = records[0][0]
+
+    if value is not None and value > 10500:
+        ret = "0" # Thirsty
+    else:
+        ret = "1"
 
     return HttpResponse(ret)
+
+def index(request):
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    val = r.get("temp_realtime")
+
+    return HttpResponse(val)

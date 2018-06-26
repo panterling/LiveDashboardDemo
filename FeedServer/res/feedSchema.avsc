@@ -1,8 +1,0 @@
-{
-    "type": "record",
-    "name": "User",
-    "fields": [
-        {"name": "value", "type": "double"},
-        {"name": "timestamp",  "type": "long"}
-    ]
-}

@@ -9,7 +9,7 @@ from FeedServer.kafkaProducer import ProducerThread
 REQUEST_MQ_NAME = "CMD"
 RESPONSE_MQ_NAME = "RESPONSE"
 
-EXTERNALLY_PRODUCED_FEEDS_LIST = ["feedone", "spark-output-topic", "spark-output-topic-avro"]
+EXTERNALLY_PRODUCED_FEEDS_LIST = ["soilapp", "spark-output-topic", "spark-output-topic-avro"]
 
 producerList = {}
 
