@@ -31,7 +31,7 @@ records = cursor.fetchall()
 ret = []
 for row in records:
     ret.append({
-        "value": row[0],
+        "value": int(row[0]),
         "label": row[1],
     })
 
