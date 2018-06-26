@@ -27,6 +27,7 @@ os.system('modprobe w1-therm')
 TEMP_SENSOR_DIR = "28-001898432182"
 
 
+
 FPS = 30
 ALERT_EVENT_INCREASE = 3
 TOTAL_ALERT_EVENT_DURATION = 20 * FPS # seconds
