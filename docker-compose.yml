@@ -30,3 +30,9 @@ services:
   cronjobs:
     build: Cron
     restart: always
+    network_mode: "host"
+
+  realtimescripts:
+    build: RealTimeScripts
+    restart: always
+    network_mode: "host"

@@ -1,7 +1,7 @@
 FROM ubuntu:16.04
 
 RUN apt-get update \
-    && apt-get install -y wget software-properties-common curl
+    && apt-get install -y wget software-properties-common curl jq
 
 RUN add-apt-repository ppa:webupd8team/java
 RUN apt-get update
@@ -13,8 +13,8 @@ RUN tar -xvf confluent-oss-4.1.1-2.11.tar.gz
 
 RUN mv confluent-4.1.1 confluent
 
-RUN java -version
+ADD sink-soilapp.properties .
+ADD server.properties confluent/etc/kafka/
 
-RUN ./confluent/bin/confluent start
 
-CMD ["/bin/bash", "-c", "confluent/bin/confluent start && trap : TERM INT; sleep infinity & wait"]
+CMD ["/bin/bash", "-c", "confluent/bin/confluent start && confluent/bin/confluent load sink-soilapp -d sink-soilapp.properties && trap : TERM INT; sleep infinity & wait"]
