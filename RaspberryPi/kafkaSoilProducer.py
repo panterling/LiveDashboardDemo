@@ -1,10 +1,11 @@
 import json
 import random
+import traceback
 from random import random as rand
 
 import numpy as np
 
-from confluent_kafka import avro
+from confluent_kafka import avro, KafkaException
 from confluent_kafka.avro import AvroProducer
 
 import os
@@ -42,10 +43,10 @@ def raspberryPiSetup():
     GPIO.setup(TEMP_SENSOR_ONOFF_PIN,GPIO.OUT)
 
 
-def readMoistureValue():
+def readMoistureValue(adc):
     GPIO.output(21, GPIO.HIGH)
     time.sleep(0.1)
-    moistureVal = self.adc.get_last_result()
+    moistureVal = adc.get_last_result()
     GPIO.output(21, GPIO.LOW)
     
     return moistureVal
@@ -79,6 +80,12 @@ def restartTemperatureSensor():
         GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.LOW)
         time.sleep(4)
         GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.HIGH)
+        os.system('modprobe w1-gpio')
+        os.system('modprobe w1-therm')
+
+        print("Giving Temperature probe time to turn on...")
+        time.sleep(4)        
+
     except:
         pass
     
@@ -139,14 +146,14 @@ class Producer():
             
                 try:
 
-                    moistureVal = readMoistureValue()
+                    moistureVal = readMoistureValue(self.adc)
 
                     temperatureVal = readTemperatureValue()
 
                     # Prepare Message and Send
                     msg = {
                         "timestamp": int(round(time.time() * 1000)),
-                        "value": -1, // UNUSED
+                        "value": -1, # UNUSED
                         "moisture": moistureVal,
                         "temperature": temperatureVal
                     }
@@ -157,9 +164,11 @@ class Producer():
                     print("Sent t({}) m({}) @ {}".format(temperatureVal, moistureVal, time.time()))
                     lastTime = now
                     
-                except IOError:
+                except IOError as ioe:
                     # Assuming Temp probe gone offline
                     print("IOError: Assuming temperature probe has gone offline - restarting")
+                    print(ioe)
+                    traceback.print_exc()
                     
                     restartTemperatureSensor()
                     
@@ -168,11 +177,11 @@ class Producer():
                     print("KafkaException: TODO....")
                     pass
                     
-                except Exception as e:
-                    # TODO: Enumerate and handle KafkaExceptions....
-                    print("Exception: General unhandled exception - Hande as-and-when... ")
-					print(e)
-                    pass
+                #except Exception as e:
+                #    # TODO: Enumerate and handle KafkaExceptions....
+                #    print("Exception: General unhandled exception - Hande as-and-when... ")
+                #    print(e)
+                #    pass
 
                 
         print("Producer for <{feedId}> quiting...".format(feedId = self.writeTopic))
