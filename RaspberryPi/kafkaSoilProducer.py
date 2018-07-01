@@ -22,7 +22,7 @@ import time
 
     
 TEMP_SENSOR_DIR = "28-001898432182"
-TEMP_SENSOR_ONOFF_PIN = ??
+TEMP_SENSOR_ONOFF_PIN = 7
     
 BROKER_URL= "209.97.137.81:9092"
 SCHEMA_REGISTRY_URL = "http://209.97.137.81:8081"
@@ -168,9 +168,10 @@ class Producer():
                     print("KafkaException: TODO....")
                     pass
                     
-                except:
+                except Exception as e:
                     # TODO: Enumerate and handle KafkaExceptions....
                     print("Exception: General unhandled exception - Hande as-and-when... ")
+					print(e)
                     pass
 
                 
