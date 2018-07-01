@@ -41,7 +41,7 @@ COPY . /home/docker/code/
 #RUN django-admin.py startproject website /home/docker/code/app/
 
 WORKDIR /home/docker/code/soilapp
-RUN ls
 
-EXPOSE 9000
-CMD ["python3", "manage.py", "runserver", "0.0.0.0:9000"]
+
+CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]
+

@@ -16,5 +16,10 @@ RUN mv confluent-4.1.1 confluent
 ADD sink-soilapp.properties .
 ADD server.properties confluent/etc/kafka/
 
+RUN mkdir /var/confluent
+
+ENV CONFLUENT_CURRENT /var/confluent
+
+RUN confluent/bin/confluent current
 
 CMD ["/bin/bash", "-c", "confluent/bin/confluent start && confluent/bin/confluent load sink-soilapp -d sink-soilapp.properties && trap : TERM INT; sleep infinity & wait"]

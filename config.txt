@@ -1,0 +1,6 @@
+postgres_username: chris
+postgres_password: cDEV2017
+postgres_db: soil
+
+api_auth_token: b6G4g7c5
+

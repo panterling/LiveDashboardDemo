@@ -3,7 +3,6 @@ import random
 from random import random as rand
 
 import numpy as np
-#from scipy import signal
 
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
@@ -19,26 +18,39 @@ import Adafruit_ADS1x15
 import RPi.GPIO as GPIO
 import time
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(21,GPIO.OUT)
 
-os.system('modprobe w1-gpio')
-os.system('modprobe w1-therm')
+
+	
 TEMP_SENSOR_DIR = "28-001898432182"
-
-
-
-FPS = 30
-ALERT_EVENT_INCREASE = 3
-TOTAL_ALERT_EVENT_DURATION = 20 * FPS # seconds
-
+TEMP_SENSOR_ONOFF_PIN = ??
+	
 BROKER_URL= "209.97.137.81:9092"
 SCHEMA_REGISTRY_URL = "http://209.97.137.81:8081"
+AVRO_DEFAULT_SCHEMA_URL = "../FeedServer/res/soilappSchema.avsc"
 
-AVRO_VALUE_SCHEMA = avro.load("../FeedServer/res/soilappSchema.avsc")
 
 
-def read_temp():
+
+
+def raspberryPiSetup():
+	os.system('modprobe w1-gpio')
+	os.system('modprobe w1-therm')
+	
+	GPIO.setmode(GPIO.BCM)
+	
+	GPIO.setup(21,GPIO.OUT)	
+	GPIO.setup(TEMP_SENSOR_ONOFF_PIN,GPIO.OUT)
+
+
+def readMoistureValue():
+	GPIO.output(21, GPIO.HIGH)
+	time.sleep(0.1)
+	moistureVal = self.adc.get_last_result()
+	GPIO.output(21, GPIO.LOW)
+	
+	return moistureVal
+	
+def readTemperatureValue():
 
     def temp_raw():
         f = open("/sys/bus/w1/devices/{}/w1_slave".format(TEMP_SENSOR_DIR), 'r')
@@ -60,6 +72,17 @@ def read_temp():
     else:
         return -1
 
+		
+def restartTemperatureSensor():
+	try:
+		# Power cycle the temperature sensor via the transistor on its ground cable
+		GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.LOW)
+		time.sleep(4)
+		GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.HIGH)
+	except:
+		pass
+	
+	
 
 class Producer():
     def __init__(self, feedId):
@@ -69,14 +92,13 @@ class Producer():
         self.writeTopic = feedId
 
         self.producer = AvroProducer({
-            'bootstrap.servers': BROKER_URL, 
+            'bootstrap.servers': BROKER_URL,
             'schema.registry.url': SCHEMA_REGISTRY_URL},
-            default_value_schema = AVRO_VALUE_SCHEMA)
+            default_value_schema = avro.load(AVRO_DEFAULT_SCHEMA_URL))
 
 
 
-        # Sensor Setup
-        self.adc = Adafruit_ADS1x15.ADS1115()
+        # Moisture Sensor Setup
         # Choose a gain of 1 for reading voltages from 0 to 4.09V.
         # Or pick a different gain to change the range of voltages that are read:
         #  - 2/3 = +/-6.144V
@@ -86,54 +108,86 @@ class Producer():
         #  -   8 = +/-0.512V
         #  -  16 = +/-0.256V
         # See table 3 in the ADS1015/ADS1115 datasheet for more info on gain.
+		self.adc = Adafruit_ADS1x15.ADS1115()
         self.adc.start_adc(0, gain=1)
+		
+		
+		# Temperature Sensor Setup
+		GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.HIGH)
 
 
 
 
 
     def run(self):
-        PERIOD = 1
+        PERIOD = 1   # seconds
+		
         lastTime = time.time()
-
+		alive = True
+		
         print("Starting Tx")
-        while True:
+        while alive:
             now = time.time()
             diff = now - lastTime
 
             if diff < PERIOD:
                 print("Waiting...")
                 time.sleep(PERIOD - diff)
+				
             else:
 
-                GPIO.output(21, GPIO.HIGH)
-                time.sleep(0.1)
-                moistureVal = self.adc.get_last_result()
-                GPIO.output(21, GPIO.LOW)
+			
+				try:
 
-                temperatureVal = read_temp()
+					moistureVal = readMoistureValue()
 
-                # Prepare Message and Send
-                msg = {
-                    "timestamp": int(round(time.time() * 1000)),
-                    "value": -1,
-                    "moisture": moistureVal,
-                    "temperature": temperatureVal
-                }
+					temperatureVal = readTemperatureValue()
 
-                self.producer.produce(topic=self.writeTopic, value=msg)
-                self.producer.flush()
+					# Prepare Message and Send
+					msg = {
+						"timestamp": int(round(time.time() * 1000)),
+						"value": -1, // UNUSED
+						"moisture": moistureVal,
+						"temperature": temperatureVal
+					}
 
-                print("Sent t({}) m({}) @ {}".format(temperatureVal, moistureVal, time.time()))
-                lastTime = now
+					self.producer.produce(topic = self.writeTopic, value = msg)
+					self.producer.flush()
 
+					print("Sent t({}) m({}) @ {}".format(temperatureVal, moistureVal, time.time()))
+					lastTime = now
+					
+				except IOError:
+					# Assuming Temp probe gone offline
+					print("IOError: Assuming temperature probe has gone offline - restarting")
+					
+					restartTemperatureSensor()
+					
+				except KafkaException:
+					# TODO: Enumerate and handle KafkaExceptions....
+					print("KafkaException: TODO....")
+					pass
+					
+				except:
+					# TODO: Enumerate and handle KafkaExceptions....
+					print("Exception: General unhandled exception - Hande as-and-when... ")
+					pass
 
+				
         print("Producer for <{feedId}> quiting...".format(feedId = self.writeTopic))
+		
+		
         self.adc.stop_adc()
+		GPIO.output(TEMP_SENSOR_ONOFF_PIN, GPIO.LOW)
 
 
 
-p = Producer("soilapp")
+raspberryPiSetup()
 
+p = Producer(feedId = "soilapp")
 
 p.run()
+
+
+
+

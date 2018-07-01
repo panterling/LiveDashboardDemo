@@ -59,8 +59,8 @@ def daily(request):
     
 
 
-
-def status(request):
+# For Widget
+def widgetStatus(request):
 
     conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
 
@@ -88,8 +88,38 @@ def status(request):
 
     return HttpResponse(ret)
 
+
+
+def systemStatus(request):
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    if request.method == 'GET':
+        # Code for GET requests
+
+        latestIP = ""
+        sensorStatus = "OK"
+        dataPipelineStatus = "OK"
+
+        status = {
+            "sensorLastKnownIP": latestIP,
+            "sensorStatus": sensorStatus,
+            "dataPipelineStatus": dataPipelineStatus
+        }
+
+        r.put("status", status)
+        val = ""
+
+    elif request.method == 'POST':
+        # Code for POST requests
+        val = r.get("status")
+
+    return HttpResponse(val)
+
 def index(request):
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    authToken = request.META.get('Authorization')
+    print(authToken)
 
     val = r.get("temp_realtime")
 
