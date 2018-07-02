@@ -7,10 +7,11 @@ import atexit
  
 HOST = ''   # Symbolic name, meaning all available interfaces
 PORT = 8888 # Arbitrary non-privileged port
- 
+
+AUTH_TOKEN = "1" 
 WATER_CMD = "W"
 
-
+isWatering = False
 
 def turnOffWater():
     print("Last ditch attempt to turn off the water tap!")
@@ -19,6 +20,9 @@ atexit.register(turnOffWater)
 
 #Function for handling connections. This will be used to create threads
 def clientthread(conn):
+
+    global isWatering
+
     #Sending message to connected client
     conn.send(str.encode('Welcome to the server. Type something and hit enter\n')) #send only takes string
      
@@ -34,7 +38,10 @@ def clientthread(conn):
 
         if not data: 
             break
-        elif data[0] == WATER_CMD:
+        elif data.rstrip("\n\r") == AUTH_TOKEN+WATER_CMD and not isWatering:
+
+            isWatering = True
+
             # Watering On
             conn.send(str.encode("Starting Watering (5 seconds)...."))
             
@@ -43,6 +50,8 @@ def clientthread(conn):
             
             # Watering Off
             conn.send(str.encode("Done"))
+
+            isWatering = False
 
             
      
