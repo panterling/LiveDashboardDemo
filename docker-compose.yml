@@ -6,9 +6,7 @@ services:
     restart: always
     network_mode: "host"
     environment:
-      POSTGRES_DB: soil
-      POSTGRES_USER: chris
-      POSTGRES_PASSWORD: cDEV2017
+      POSTGRES_PASSWORD_FILE: postgres_config.txt
   
   redis:
     image: redis

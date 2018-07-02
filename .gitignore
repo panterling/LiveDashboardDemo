@@ -20,6 +20,9 @@ Documentation/.~lock.*
 # Private Info
 Android/SoilMonitor/app/src/main/res/raw/config.properties
 
+postgres_config.txt 
+config.yml
+
 # Built application files
 *.apk
 *.ap_
