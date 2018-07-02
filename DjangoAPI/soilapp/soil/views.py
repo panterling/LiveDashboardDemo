@@ -1,6 +1,9 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 import psycopg2
 import redis
+import json
+import time
 
 
 # Create your views here.
@@ -89,29 +92,63 @@ def widgetStatus(request):
     return HttpResponse(ret)
 
 
+@csrf_exempt
+def sensorStatus(request):
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
+    if request.method == 'POST':
+
+        data = json.loads( request.body.decode("utf-8"))
+
+
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+
+        newSensorStatus = {
+            "ip": ip,
+            "timestamp": time.time(),
+            "status": data["status"],
+        }
+
+        r.set("sensorStatus", json.dumps(newSensorStatus))    
+
+
+    val = "OK"
+    return HttpResponse(val)
+
+
+
+
+
+@csrf_exempt
 def systemStatus(request):
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    if request.method == 'GET':
-        # Code for GET requests
+    if True:
+        
+        sensorStatus = r.get("sensorStatus")
+        if sensorStatus is None:
+            sensorStatus = "Unset"
+            latestIP = "0.0.0.0"
+        else:
+            sensorStatusJson = json.loads(sensorStatus.decode("utf-8"))
+            sensorStatus = sensorStatusJson["status"] if (time.time() - sensorStatusJson["timestamp"] < 10) else "Offline"
+            latestIP = sensorStatusJson["ip"]
 
-        latestIP = ""
-        sensorStatus = "OK"
-        dataPipelineStatus = "OK"
+
 
         status = {
-            "sensorLastKnownIP": latestIP,
-            "sensorStatus": sensorStatus,
-            "dataPipelineStatus": dataPipelineStatus
+           "sensorLastKnownIP": latestIP,
+           "sensorStatus": sensorStatus,
+           "dataPipelineStatus": "Not implemented"
         }
 
-        r.put("status", status)
-        val = ""
 
-    elif request.method == 'POST':
-        # Code for POST requests
-        val = r.get("status")
+        val = json.dumps(status)
 
     return HttpResponse(val)
 

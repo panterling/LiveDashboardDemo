@@ -8,5 +8,6 @@ urlpatterns = [
     path('daily', views.daily, name = 'daily'),
     path('widgetStatus', views.widgetStatus, name='widgetStatus'),
     path('systemStatus', views.systemStatus, name='systemStatus'),
+    path('sensorStatus', views.sensorStatus, name='sensorStatus')
 
 ]
