@@ -3,25 +3,63 @@ import sys
 import time
 import threading
 import atexit
+import yaml
 
  
 HOST = ''   # Symbolic name, meaning all available interfaces
-PORT = 8888 # Arbitrary non-privileged port
 
-AUTH_TOKEN = "1" 
-WATER_CMD = "W"
 
-isWatering = False
+## LOAD CONFIG ##
+CONF = yaml.load(open("../config.yml", "r"))
+
+PORT = str(CONF["sensor_control_port"])
+AUTH_TOKEN = str(CONF["auth_token"])
+WATER_CMD = str(CONF["sensor_command_water"])
+STATUS_CMD = str(CONF["sensor_command_status"])
 
 def turnOffWater():
     print("Last ditch attempt to turn off the water tap!")
+    s.close()
 atexit.register(turnOffWater)
+
+
+
+class Watering():
+    def __init__(self):
+        self.isWatering = False
+
+    def doWatering(self, conn):
+
+        if self.isWatering:
+            return False
+
+        self.isWatering = True
+
+        # Watering On
+        conn.send(str.encode("Starting Watering (5 seconds)...."))
+        
+        # io.output(WATERING_PIN, True)
+        time.sleep(5)
+        # io.output(WATERING_PIN, False)
+
+        # Watering Off
+        conn.send(str.encode("Watering Done"))
+
+        self.isWatering = False
+
+
+wateringObj = Watering()
+
+
+
+
+
 
 
 #Function for handling connections. This will be used to create threads
 def clientthread(conn):
 
-    global isWatering
+    global wateringObj
 
     #Sending message to connected client
     conn.send(str.encode('Welcome to the server. Type something and hit enter\n')) #send only takes string
@@ -38,24 +76,13 @@ def clientthread(conn):
 
         if not data: 
             break
-        elif data.rstrip("\n\r") == AUTH_TOKEN+WATER_CMD and not isWatering:
-
-            isWatering = True
-
-            # Watering On
-            conn.send(str.encode("Starting Watering (5 seconds)...."))
-            
-            # Wait
-            time.sleep(5)
-            
-            # Watering Off
-            conn.send(str.encode("Done"))
-
-            isWatering = False
-
-            
-     
-        conn.sendall(str.encode(reply))
+        elif data.rstrip("\n\r") == AUTH_TOKEN+STATUS_CMD:
+            conn.send(str.encode("1"))
+        elif data.rstrip("\n\r") == AUTH_TOKEN+WATER_CMD:
+            if not wateringObj.doWatering(conn):
+                reply = "Watering already in progress"
+                conn.sendall(str.encode(reply))
+            # else: conn passed to Thread - no longer safe to use....
      
     #came out of loop
     conn.close()

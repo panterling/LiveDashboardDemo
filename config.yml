@@ -1,0 +1,9 @@
+postgres_username: chris
+postgres_password: cDEV2017
+postgres_db: soil
+
+auth_token: 1
+
+sensor_control_port: 8888
+sensor_command_water: W
+sensor_command_status: S
