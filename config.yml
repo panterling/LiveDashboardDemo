@@ -1,3 +1,4 @@
+server_ip: 209.97.137.81
 postgres_username: chris
 postgres_password: cDEV2017
 postgres_db: soil

@@ -4,6 +4,7 @@ import time
 import threading
 import atexit
 import yaml
+import psycopg2
 
  
 HOST = ''   # Symbolic name, meaning all available interfaces
@@ -12,10 +13,16 @@ HOST = ''   # Symbolic name, meaning all available interfaces
 ## LOAD CONFIG ##
 CONF = yaml.load(open("../config.yml", "r"))
 
-PORT = str(CONF["sensor_control_port"])
+PORT = int(CONF["sensor_control_port"])
+
 AUTH_TOKEN = str(CONF["auth_token"])
 WATER_CMD = str(CONF["sensor_command_water"])
 STATUS_CMD = str(CONF["sensor_command_status"])
+
+DB_HOST = str(CONF["server_ip"])
+DB_NAME = str(CONF["postgres_db"])
+DB_USERNAME = str(CONF["postgres_username"])
+DB_PASSWORD = str(CONF["postgres_password"])
 
 def turnOffWater():
     print("Last ditch attempt to turn off the water tap!")
@@ -27,6 +34,11 @@ atexit.register(turnOffWater)
 class Watering():
     def __init__(self):
         self.isWatering = False
+
+        conn_string = "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
+        print("DB_CONN_STRING: " + conn_string)
+        self.conn = psycopg2.connect(conn_string)
+        self.db = self.conn.cursor() 
 
     def doWatering(self, conn):
 
@@ -46,6 +58,17 @@ class Watering():
         conn.send(str.encode("Watering Done"))
 
         self.isWatering = False
+
+        self.saveToDb()
+
+    def saveToDb(self):
+        print("Saving event to DB...")
+        try:
+            self.db.execute("INSERT INTO event (eventtypeid, timestamp, outcome) VALUES (1, now(), 'OK')")
+            self.conn.commit()
+            print("    Saved!")
+        except Exception as e:
+            print(e)
 
 
 wateringObj = Watering()
