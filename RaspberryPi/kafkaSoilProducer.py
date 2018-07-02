@@ -1,6 +1,7 @@
 import json
 import random
 import traceback
+import requests
 from random import random as rand
 
 import numpy as np
@@ -30,6 +31,10 @@ SCHEMA_REGISTRY_URL = "http://209.97.137.81:8081"
 AVRO_DEFAULT_SCHEMA_URL = "../FeedServer/res/soilappSchema.avsc"
 
 
+globalCurrentStatus = "OK"
+def heartBeatSend():
+    print("HEARTBEAT: {}".format(globalCurrentStatus))
+    requests.post("http://209.97.137.81:8000/soil/sensorStatus", data = '{{"status": "{}"}}'.format(globalCurrentStatus), headers = {})
 
 
 
@@ -163,25 +168,31 @@ class Producer():
 
                     print("Sent t({}) m({}) @ {}".format(temperatureVal, moistureVal, time.time()))
                     lastTime = now
+
+                    globalCurrentStatus = "Okay"
                     
                 except IOError as ioe:
                     # Assuming Temp probe gone offline
                     print("IOError: Assuming temperature probe has gone offline - restarting")
                     print(ioe)
                     traceback.print_exc()
+
+                    globalCurrentStatus = "Temp Probe Issues"
                     
                     restartTemperatureSensor()
                     
                 except KafkaException:
                     # TODO: Enumerate and handle KafkaExceptions....
                     print("KafkaException: TODO....")
+                    globalCurrentStatus = "Kafka Issues"
                     pass
                     
-                #except Exception as e:
-                #    # TODO: Enumerate and handle KafkaExceptions....
-                #    print("Exception: General unhandled exception - Hande as-and-when... ")
-                #    print(e)
-                #    pass
+                except Exception as e:
+                    # TODO: Enumerate and handle KafkaExceptions....
+                    print("Exception: General unhandled exception - Hande as-and-when... ")
+                    print(e)
+                    globalCurrentStatus = "Unknown Issues"
+                    pass
 
                 
         print("Producer for <{feedId}> quiting...".format(feedId = self.writeTopic))
@@ -194,9 +205,34 @@ class Producer():
 
 raspberryPiSetup()
 
-p = Producer(feedId = "soilapp")
+HEART_BEAT_PERIOD = 2
+def hearthBeatThreadFunction():
+    lastTime = time.time()
+    alive = True
 
-p.run()
+    print("HEARTBEAT: Starting Tx")
+    while alive:
+        now = time.time()
+        diff = now - lastTime
+
+        if diff < HEART_BEAT_PERIOD:
+            #print("HEARTBEAT: Waiting...")
+            time.sleep(HEART_BEAT_PERIOD - diff)
+        else:
+            heartBeatSend()
+            lastTime = now
+
+        
+
+
+heartBeatThread = threading.Thread(target=hearthBeatThreadFunction, args=[])
+heartBeatThread.start()
+
+
+
+producerThread = Producer(feedId = "soilapp")
+producerThread.run()
+
 
 
 
