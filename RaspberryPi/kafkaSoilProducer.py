@@ -25,6 +25,8 @@ import time
     
 TEMP_SENSOR_DIR = "28-001898432182"
 TEMP_SENSOR_ONOFF_PIN = 7
+
+ADC_POWER_PIN = 13
     
 BROKER_URL= "209.97.137.81:9092"
 SCHEMA_REGISTRY_URL = "http://209.97.137.81:8081"
@@ -44,15 +46,15 @@ def raspberryPiSetup():
     
     GPIO.setmode(GPIO.BCM)
     
-    GPIO.setup(21,GPIO.OUT)    
+    GPIO.setup(ADC_POWER_PIN,GPIO.OUT)    
     GPIO.setup(TEMP_SENSOR_ONOFF_PIN,GPIO.OUT)
 
 
 def readMoistureValue(adc):
-    GPIO.output(21, GPIO.HIGH)
+    GPIO.output(ADC_POWER_PIN, GPIO.HIGH)
     time.sleep(0.1)
     moistureVal = adc.get_last_result()
-    GPIO.output(21, GPIO.LOW)
+    GPIO.output(ADC_POWER_PIN, GPIO.LOW)
     
     return moistureVal
     
