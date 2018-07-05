@@ -6,7 +6,13 @@ import atexit
 import yaml
 import psycopg2
 
- 
+
+WATERING_PIN = 15
+import RPi.GPIO as io
+io.setmode(io.BCM)
+io.setup(WATERING_PIN, io.OUT)
+io.output(WATERING_PIN, False)
+
 HOST = ''   # Symbolic name, meaning all available interfaces
 
 
@@ -24,8 +30,11 @@ DB_NAME = str(CONF["postgres_db"])
 DB_USERNAME = str(CONF["postgres_username"])
 DB_PASSWORD = str(CONF["postgres_password"])
 
+WATERING_DURATION = 2
+
 def turnOffWater():
     print("Last ditch attempt to turn off the water tap!")
+    io.output(WATERING_PIN, False)
     s.close()
 atexit.register(turnOffWater)
 
@@ -48,18 +57,24 @@ class Watering():
         self.isWatering = True
 
         # Watering On
-        conn.send(str.encode("Starting Watering (5 seconds)...."))
+        conn.send(str.encode("Starting Watering ({} seconds)....\r\n".format(WATERING_DURATION)))
         
-        # io.output(WATERING_PIN, True)
-        time.sleep(5)
-        # io.output(WATERING_PIN, False)
+        io.output(WATERING_PIN, True)
+        time.sleep(WATERING_DURATION)
+        io.output(WATERING_PIN, False)
 
         # Watering Off
-        conn.send(str.encode("Watering Done"))
+        try:
+            conn.send(str.encode("Watering Done\r\n"))
+            print("Sent response to connection.")
+        except:
+            print("Connection closed before a response could be sent!")
 
         self.isWatering = False
 
         self.saveToDb()
+
+        return True
 
     def saveToDb(self):
         print("Saving event to DB...")
@@ -85,7 +100,7 @@ def clientthread(conn):
     global wateringObj
 
     #Sending message to connected client
-    conn.send(str.encode('Welcome to the server. Type something and hit enter\n')) #send only takes string
+    conn.send(str.encode('Welcome to the RaspPi Remote Control server. Awaiting commands...\n')) #send only takes string
      
     #infinite loop so that function do not terminate and thread do not end.
     while True:
@@ -103,8 +118,12 @@ def clientthread(conn):
             conn.send(str.encode("1"))
         elif data.rstrip("\n\r") == AUTH_TOKEN+WATER_CMD:
             if not wateringObj.doWatering(conn):
-                reply = "Watering already in progress"
-                conn.sendall(str.encode(reply))
+                reply = "Watering already in progress\r\n"
+                try:
+                    conn.sendall(str.encode(reply))
+                except:
+                    print("Connection closed before reply could be sent.")
+
             # else: conn passed to Thread - no longer safe to use....
      
     #came out of loop
