@@ -36,7 +36,10 @@ AVRO_DEFAULT_SCHEMA_URL = "../FeedServer/res/soilappSchema.avsc"
 globalCurrentStatus = "OK"
 def heartBeatSend():
     print("HEARTBEAT: {}".format(globalCurrentStatus))
-    requests.post("http://209.97.137.81:8000/soil/sensorStatus", data = '{{"status": "{}"}}'.format(globalCurrentStatus), headers = {})
+    try:
+        requests.post("http://209.97.137.81:8000/soil/sensorStatus", data = '{{"status": "{}"}}'.format(globalCurrentStatus), headers = {})
+    except:
+        print("Failed to send HEARTBEAT")
 
 
 
