@@ -192,7 +192,7 @@
                         let temperatureValue = localData["temperature"];
                         moistureValue = Number(Android.getSensorMinThreshold()) + (Number(Android.getSensorMaxThreshold()) - Number(moistureValue))
 
-                        console.log(moistureValue)
+                        console.log(localData["min"])
 
 
                         data.data.push({
