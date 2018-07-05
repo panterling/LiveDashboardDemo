@@ -19,6 +19,8 @@ services:
     build: DjangoAPI
     restart: always
     network_mode: "host"
+    volumes:
+      - /root/config:/var/config
     ports:
       - 8000:8000
   
@@ -28,13 +30,21 @@ services:
     network_mode: "host"
     volumes:
       - /var/confluent:/var/confluent
+      - /root/config:/var/config
+
 
   cronjobs:
     build: Cron
     restart: always
     network_mode: "host"
+    volumes:
+      - /root/config:/var/config
+
 
   realtimescripts:
     build: RealTimeScripts
     restart: always
     network_mode: "host"
+    volumes:
+      - /root/config:/var/config
+

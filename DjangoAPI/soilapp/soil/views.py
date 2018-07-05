@@ -15,7 +15,7 @@ import time
 
 def getConnectionString():
 ## LOAD CONFIG ##
-    CONF = yaml.load(open("../config.yml", "r"))
+    CONF = yaml.load(open("/var/config/config.yml", "r"))
     DB_HOST = str(CONF["server_ip"])
     DB_NAME = str(CONF["postgres_db"])
     DB_USERNAME = str(CONF["postgres_username"])
