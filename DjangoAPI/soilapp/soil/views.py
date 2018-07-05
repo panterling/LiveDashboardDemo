@@ -4,6 +4,7 @@ import psycopg2
 import redis
 import json
 import time
+import yaml
 
 
 # Create your views here.
@@ -12,11 +13,19 @@ from django.http import HttpResponse, JsonResponse
 import time
 
 
+def getConnectionString():
+## LOAD CONFIG ##
+    CONF = yaml.load(open("../config.yml", "r"))
+    DB_HOST = str(CONF["server_ip"])
+    DB_NAME = str(CONF["postgres_db"])
+    DB_USERNAME = str(CONF["postgres_username"])
+    DB_PASSWORD = str(CONF["postgres_password"])
+    return "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
+
 
 def hourly(request):
     
-    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(getConnectionString())
     cursor = conn.cursor()
     
     cursor.execute("""
@@ -56,7 +65,7 @@ def hourly(request):
 def daily(request):
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    val = r.get("temp_daily")
+    val = r.get("latestDaily")
 
     return HttpResponse(val)
     
@@ -65,9 +74,7 @@ def daily(request):
 # For Widget
 def widgetStatus(request):
 
-    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
-
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(getConnectionString())
 
     cursor = conn.cursor()
 
@@ -158,6 +165,6 @@ def index(request):
     authToken = request.META.get('Authorization')
     print(authToken)
 
-    val = r.get("temp_realtime")
+    val = r.get("latestRealtime")
 
     return HttpResponse(val)

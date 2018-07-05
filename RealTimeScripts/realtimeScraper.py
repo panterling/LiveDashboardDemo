@@ -2,8 +2,16 @@ import psycopg2
 import redis
 import time
 import json
+import yaml
 
-conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
+## LOAD CONFIG ##
+CONF = yaml.load(open("../config.yml", "r"))
+DB_HOST = str(CONF["server_ip"])
+DB_NAME = str(CONF["postgres_db"])
+DB_USERNAME = str(CONF["postgres_username"])
+DB_PASSWORD = str(CONF["postgres_password"])
+conn_string = "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
+
 
 conn = psycopg2.connect(conn_string)
 
@@ -54,7 +62,7 @@ LIMIT 1;
         "avg": int(records[0][5])
     }
 
-    rdb.set("temp_realtime", json.dumps(ret))
+    rdb.set("latestRealtime", json.dumps(ret))
 
     time.sleep(0.5)
 

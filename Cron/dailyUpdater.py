@@ -1,12 +1,21 @@
 import redis
 import json
 import psycopg2
+import yaml
 
 rdb = redis.StrictRedis(host = 'localhost', port = 6379, db = 0)
 
 
+## LOAD CONFIG ##
+CONF = yaml.load(open("../config.yml", "r"))
+DB_HOST = str(CONF["server_ip"])
+DB_NAME = str(CONF["postgres_db"])
+DB_USERNAME = str(CONF["postgres_username"])
+DB_PASSWORD = str(CONF["postgres_password"])
+conn_string = "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
 
-conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
+
+
 conn = psycopg2.connect(conn_string)
 cursor = conn.cursor()
 
@@ -37,4 +46,4 @@ for row in records:
 
 
 
-rdb.set("temp_daily", json.dumps(ret))
+rdb.set("latestDaily", json.dumps(ret))
