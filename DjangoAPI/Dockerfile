@@ -31,6 +31,7 @@ RUN apt-get update && \
 # to prevent re-installing (all your) dependencies when you made a change a line or two in your app.
 
 COPY soilapp/requirements.txt /home/docker/code/app/
+COPY config.yml /home/docker/code
 RUN pip3 install -r /home/docker/code/app/requirements.txt
 
 # add (the rest of) our code
@@ -41,6 +42,8 @@ COPY . /home/docker/code/
 #RUN django-admin.py startproject website /home/docker/code/app/
 
 WORKDIR /home/docker/code/soilapp
+
+RUN ls /home/docker/code
 
 
 CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]

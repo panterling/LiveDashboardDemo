@@ -29,13 +29,14 @@ def hourly(request):
     cursor = conn.cursor()
     
     cursor.execute("""
-        COMMIT;
+COMMIT;
         BEGIN;
         SET timezone TO 'UTC-1:00';
 
-        SELECT
+WITH values AS (
+    SELECT
         avg(moisture)
-        , date_part('hour', timestamp)
+        , date_part('hour', timestamp) as hour
         , to_char(timestamp, 'hh AM') as label
     FROM
         soilapp
@@ -47,7 +48,27 @@ def hourly(request):
         , date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     ORDER BY
         date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
-
+)
+SELECT
+	values.*,
+	events.count
+FROM
+	values
+LEFT OUTER JOIN 
+    (
+	SELECT
+		date_part('hour', timestamp) as hour
+		, count(*)
+	FROM 
+		event 
+	WHERE 
+		timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours') 
+	GROUP BY
+		date_part('hour', timestamp) 
+		, to_char(timestamp, 'hh AM')
+		, date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+    )
+    AS events ON events.hour = values.hour
     """)
     
     records = cursor.fetchall()
@@ -58,6 +79,7 @@ def hourly(request):
             "moisture": row[0],
             "label": row[2],
             "hour": row[1],
+            "waterEventsCount": row[3]
         })
 
     return JsonResponse(ret, safe = False)
