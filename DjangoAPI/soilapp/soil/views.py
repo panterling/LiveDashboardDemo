@@ -36,39 +36,40 @@ COMMIT;
 WITH values AS (
     SELECT
         avg(moisture)
-        , date_part('hour', timestamp) as hour
+        , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') as key
         , to_char(timestamp, 'hh AM') as label
     FROM
         soilapp
     WHERE
-        timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours')
+        timestamp BETWEEN now() - interval '12 hours' AND now()
     GROUP BY
         date_part('hour', timestamp)
         , to_char(timestamp, 'hh AM')
-        , date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+        , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     ORDER BY
-        date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
+        date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
 )
 SELECT
-	values.*,
-	events.count
+        values.*,
+        events.count
 FROM
-	values
+        values
 LEFT OUTER JOIN 
     (
-	SELECT
-		date_part('hour', timestamp) as hour
-		, count(*)
-	FROM 
-		event 
-	WHERE 
-		timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours') 
-	GROUP BY
-		date_part('hour', timestamp) 
-		, to_char(timestamp, 'hh AM')
-		, date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+        SELECT
+                date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') as key
+                , count(*)
+        FROM 
+                event 
+        WHERE 
+                timestamp BETWEEN now() - interval '12 hours' AND now()
+        GROUP BY
+                date_part('hour', timestamp) 
+                , to_char(timestamp, 'hh AM')
+                , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     )
-    AS events ON events.hour = values.hour
+    AS events ON events.key = values.key
+
     """)
     
     records = cursor.fetchall()
