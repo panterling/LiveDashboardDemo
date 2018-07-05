@@ -12,6 +12,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.example.chris.soilmonitor.Helpers.MiscHelpers;
 import com.example.chris.soilmonitor.R;
 
 import java.text.SimpleDateFormat;
@@ -52,11 +53,11 @@ public class BasicWidgetProvider extends AppWidgetProvider {
     private void fetchAndUpdate(Context context, final int widgetId, final AppWidgetManager appWidgetManager) {
         final RequestQueue queue = Volley.newRequestQueue(context);
 
-        final String SERVER_URL = "http://51.140.206.33:8000"; //getConfigValue(this, "serverurl");
+        final String SERVER_URL = MiscHelpers.getConfigValue(context, "serverurlbase");
 
         final RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget_basic);
 
-        final String url = SERVER_URL + "/soil/status";
+        final String url = SERVER_URL + "/soil/widgetStatus";
 
         StringRequest stringRequest = new StringRequest(GET, url,
             new Response.Listener<String>() {

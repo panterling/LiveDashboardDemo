@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.RequestQueue;
@@ -23,6 +24,7 @@ import com.android.volley.toolbox.Volley;
 import com.example.chris.soilmonitor.Adapters.DayOfWeekAdapter;
 import com.example.chris.soilmonitor.Helpers.MiscHelpers;
 import com.example.chris.soilmonitor.Misc.EmbeddedWebViewClient;
+import com.example.chris.soilmonitor.Misc.WateringClient;
 import com.example.chris.soilmonitor.Models.DayOfWeekListItemModel;
 import com.example.chris.soilmonitor.Monitors.HealthMonitor;
 import com.example.chris.soilmonitor.R;
@@ -32,6 +34,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -86,6 +92,26 @@ public class PlantOverviewActivity extends AppCompatActivity {
         updateHourly();
         updateDaily();
 
+
+        // Watering Mechanism
+        final ImageView ivMoistureIcon = (ImageView) findViewById(R.id.ivMoistureIcon);
+
+        ivMoistureIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                try {
+
+                    String ip = MiscHelpers.getConfigValue(PlantOverviewActivity.this, "sensorurl");
+
+                    new WateringClient(PlantOverviewActivity.this).execute(new String[] {ip});
+
+                } catch (Exception e) {
+                    Log.e("", "WateringClient: ", e);
+                }
+
+            }
+        });
 
     }
 
@@ -234,6 +260,13 @@ public class PlantOverviewActivity extends AppCompatActivity {
 
                                         String label = jo.getString("label");
                                         Double rawvalue = jo.getDouble("moisture");
+                                        Integer waterEventsCount = 0;
+                                        try {
+                                            int temp = jo.getInt("waterEventsCount");
+                                            waterEventsCount = temp;
+                                        } catch (Exception e) {
+
+                                        }
 
                                         String value = "--";
                                         try {
@@ -249,6 +282,10 @@ public class PlantOverviewActivity extends AppCompatActivity {
                                         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(MiscHelpers.toDP(75, getApplicationContext()), LinearLayout.LayoutParams.FILL_PARENT);
                                         params.setMargins(MiscHelpers.toDP(5, getApplicationContext()), 0, MiscHelpers.toDP(5, getApplicationContext()), 0);
                                         nextCell.setLayoutParams(params);
+
+                                        if(waterEventsCount > 0) {
+                                            nextCell.setBackgroundResource(R.drawable.list_item_bg_blue);
+                                        }
 
 
 

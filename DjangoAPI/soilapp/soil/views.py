@@ -4,6 +4,7 @@ import psycopg2
 import redis
 import json
 import time
+import yaml
 
 
 # Create your views here.
@@ -12,21 +13,30 @@ from django.http import HttpResponse, JsonResponse
 import time
 
 
+def getConnectionString():
+## LOAD CONFIG ##
+    CONF = yaml.load(open("/var/config/config.yml", "r"))
+    DB_HOST = str(CONF["server_ip"])
+    DB_NAME = str(CONF["postgres_db"])
+    DB_USERNAME = str(CONF["postgres_username"])
+    DB_PASSWORD = str(CONF["postgres_password"])
+    return "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
+
 
 def hourly(request):
     
-    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(getConnectionString())
     cursor = conn.cursor()
     
     cursor.execute("""
-        COMMIT;
+COMMIT;
         BEGIN;
         SET timezone TO 'UTC-1:00';
 
-        SELECT
+WITH values AS (
+    SELECT
         avg(moisture)
-        , date_part('hour', timestamp)
+        , date_part('hour', timestamp) as hour
         , to_char(timestamp, 'hh AM') as label
     FROM
         soilapp
@@ -38,7 +48,27 @@ def hourly(request):
         , date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     ORDER BY
         date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
-
+)
+SELECT
+	values.*,
+	events.count
+FROM
+	values
+LEFT OUTER JOIN 
+    (
+	SELECT
+		date_part('hour', timestamp) as hour
+		, count(*)
+	FROM 
+		event 
+	WHERE 
+		timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours') 
+	GROUP BY
+		date_part('hour', timestamp) 
+		, to_char(timestamp, 'hh AM')
+		, date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+    )
+    AS events ON events.hour = values.hour
     """)
     
     records = cursor.fetchall()
@@ -49,6 +79,7 @@ def hourly(request):
             "moisture": row[0],
             "label": row[2],
             "hour": row[1],
+            "waterEventsCount": row[3]
         })
 
     return JsonResponse(ret, safe = False)
@@ -56,7 +87,7 @@ def hourly(request):
 def daily(request):
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    val = r.get("temp_daily")
+    val = r.get("latestDaily")
 
     return HttpResponse(val)
     
@@ -65,9 +96,7 @@ def daily(request):
 # For Widget
 def widgetStatus(request):
 
-    conn_string = "host='localhost' dbname='soil' user='chris' password='cDEV2017'"
-
-    conn = psycopg2.connect(conn_string)
+    conn = psycopg2.connect(getConnectionString())
 
     cursor = conn.cursor()
 
@@ -158,6 +187,6 @@ def index(request):
     authToken = request.META.get('Authorization')
     print(authToken)
 
-    val = r.get("temp_realtime")
+    val = r.get("latestRealtime")
 
     return HttpResponse(val)

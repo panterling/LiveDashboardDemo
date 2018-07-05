@@ -1,0 +1,10 @@
+server_ip: 0.0.0.0
+postgres_username: abc
+postgres_password: abc
+postgres_db: anc
+
+auth_token: 1
+
+sensor_control_port: 8888
+sensor_command_water: W
+sensor_command_status: S

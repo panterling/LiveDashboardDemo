@@ -92,6 +92,10 @@ public class PlantOverviewRealtimeWebViewInterface {
                     final int SENSOR_MAX = Integer.parseInt(MiscHelpers.getConfigValue(getActivity(), "sensormax"));
 
                     newVal = convertToPercentageString(current);
+
+                    newMin = convertToPercentageString(min);
+                    newMax = convertToPercentageString(max);
+
                     newMin = Integer.toString(Math.min(Integer.parseInt(convertToPercentageString(min)), 0));
                     newMax = Integer.toString(Math.min(Integer.parseInt(convertToPercentageString(max)), 100));
                     newTemperature = temperature;
