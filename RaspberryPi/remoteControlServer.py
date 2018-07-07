@@ -63,7 +63,7 @@ class Watering():
         self.conn = psycopg2.connect(conn_string)
         self.db = self.conn.cursor()
 
-    def doWatering(self, conn):
+    def doWatering(self, conn, duration = WATERING_DURATION):
 
         if self.isWatering:
             return False
@@ -71,10 +71,10 @@ class Watering():
         self.isWatering = True
 
         # Watering On
-        conn.send(str.encode("Starting Watering ({} seconds)....\r\n".format(WATERING_DURATION)))
+        conn.send(str.encode("Starting Watering ({} seconds)....\r\n".format(duration)))
         
         io.output(WATERING_PIN, True)
-        time.sleep(WATERING_DURATION)
+        time.sleep(float(duration))
         io.output(WATERING_PIN, False)
 
         # Watering Off
@@ -130,8 +130,10 @@ def clientthread(conn):
             break
         elif data.rstrip("\n\r") == AUTH_TOKEN+STATUS_CMD:
             conn.send(str.encode("1"))
-        elif data.rstrip("\n\r") == AUTH_TOKEN+WATER_CMD:
-            if not wateringObj.doWatering(conn):
+        elif data.rstrip("\n\r")[0:len(AUTH_TOKEN) + len(WATER_CMD)] == AUTH_TOKEN+WATER_CMD:
+            duration = data.rstrip("\n\r")[len(AUTH_TOKEN) + len(WATER_CMD):]
+            print(duration)
+            if not wateringObj.doWatering(conn, duration):
                 reply = "Watering already in progress\r\n"
                 try:
                     conn.sendall(str.encode(reply))
