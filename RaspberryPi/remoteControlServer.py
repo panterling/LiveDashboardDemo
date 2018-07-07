@@ -44,10 +44,24 @@ class Watering():
     def __init__(self):
         self.isWatering = False
 
+
+        connected = False
+        while not connected:
+            try:
+                self.creatDbConnection()
+                print("Connected!")
+                connected = True
+            except Exception as e:
+                print("Remote Control Server: Unable to connect to DB... Trying again in 10 seconds")
+                print(e)
+                time.sleep(10)
+
+    def creatDbConnection(self):
         conn_string = "host='{host}' dbname='{db}' user='{username}' password='{password}'".format(host = DB_HOST, db = DB_NAME, username = DB_USERNAME, password = DB_PASSWORD)
         print("DB_CONN_STRING: " + conn_string)
+
         self.conn = psycopg2.connect(conn_string)
-        self.db = self.conn.cursor() 
+        self.db = self.conn.cursor()
 
     def doWatering(self, conn):
 

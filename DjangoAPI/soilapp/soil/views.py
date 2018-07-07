@@ -15,7 +15,7 @@ import time
 
 def getConnectionString():
 ## LOAD CONFIG ##
-    CONF = yaml.load(open("../config.yml", "r"))
+    CONF = yaml.load(open("/var/config/config.yml", "r"))
     DB_HOST = str(CONF["server_ip"])
     DB_NAME = str(CONF["postgres_db"])
     DB_USERNAME = str(CONF["postgres_username"])
@@ -29,24 +29,46 @@ def hourly(request):
     cursor = conn.cursor()
     
     cursor.execute("""
-        COMMIT;
+COMMIT;
         BEGIN;
         SET timezone TO 'UTC-1:00';
 
-        SELECT
+WITH values AS (
+    SELECT
         avg(moisture)
-        , date_part('hour', timestamp)
+        , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') as key
         , to_char(timestamp, 'hh AM') as label
     FROM
         soilapp
     WHERE
-        timestamp::TIMESTAMP WITH TIME ZONE BETWEEN (now() - interval '1 hours') - interval '12 hours' AND (now() - interval '1 hours')
+        timestamp BETWEEN now() - interval '12 hours' AND now()
     GROUP BY
         date_part('hour', timestamp)
         , to_char(timestamp, 'hh AM')
-        , date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+        , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
     ORDER BY
-        date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
+        date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') DESC
+)
+SELECT
+        values.*,
+        events.count
+FROM
+        values
+LEFT OUTER JOIN 
+    (
+        SELECT
+                date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0') as key
+                , count(*)
+        FROM 
+                event 
+        WHERE 
+                timestamp BETWEEN now() - interval '12 hours' AND now()
+        GROUP BY
+                date_part('hour', timestamp) 
+                , to_char(timestamp, 'hh AM')
+                , date_part('year', timestamp)::TEXT || date_part('month', timestamp)::TEXT || date_part('day', timestamp)::TEXT || lpad(date_part('hour', timestamp)::TEXT, 2, '0')
+    )
+    AS events ON events.key = values.key
 
     """)
     
@@ -58,6 +80,7 @@ def hourly(request):
             "moisture": row[0],
             "label": row[2],
             "hour": row[1],
+            "waterEventsCount": row[3]
         })
 
     return JsonResponse(ret, safe = False)
