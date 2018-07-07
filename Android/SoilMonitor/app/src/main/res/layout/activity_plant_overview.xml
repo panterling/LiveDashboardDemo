@@ -74,6 +74,7 @@
                 android:id="@+id/tvMaxPercentage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="25px"
                 android:gravity="center"
                 android:text="△ --%"
                 android:textColor="@android:color/background_light"
@@ -96,8 +97,8 @@
                 android:layout_marginTop="15dp"
                 android:background="@drawable/list_item_bg"
                 android:gravity="center"
-                android:paddingLeft="3px"
-                android:paddingRight="3px"
+                android:padding="6px"
+                android:paddingRight="15px"
                 android:textColor="@android:color/background_light"
                 android:textSize="14sp" />
         </LinearLayout>
@@ -135,18 +136,6 @@
             android:orientation="horizontal"
             android:weightSum="1">
 
-            <TextView
-                android:id="@+id/textView9"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@drawable/list_item_bg"
-                android:gravity="center"
-                android:text="Loading..."
-                android:textAlignment="center"
-                android:textColor="@android:color/background_light"
-                android:textSize="24sp"
-                android:textStyle="bold" />
         </LinearLayout>
     </HorizontalScrollView>
 
@@ -180,8 +169,9 @@
             android:layout_height="152dp"
             android:layout_alignParentBottom="true"
             android:layout_alignParentStart="true"
+            android:layout_margin="15px"
             android:layout_weight="1"
-            android:background="@android:color/black"
+            android:background="@drawable/black_background_white_border"
             android:gravity="center"
             android:textAlignment="textStart"
             android:textColor="@android:color/white"

@@ -2,7 +2,9 @@ package com.example.chris.soilmonitor.WebViewInterfaces;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Point;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Display;
 import android.webkit.JavascriptInterface;
@@ -10,11 +12,13 @@ import android.widget.TextView;
 
 import com.example.chris.soilmonitor.Activities.PlantOverviewActivity;
 import com.example.chris.soilmonitor.Helpers.MiscHelpers;
+import com.example.chris.soilmonitor.Helpers.NotificationHelper;
 import com.example.chris.soilmonitor.Monitors.HealthMonitor;
 import com.example.chris.soilmonitor.R;
 
 import java.util.Date;
 
+import static android.content.Context.MODE_PRIVATE;
 import static android.hardware.SensorManager.SENSOR_MIN;
 
 /**
@@ -25,11 +29,14 @@ public class PlantOverviewRealtimeWebViewInterface {
     Context context;
     HealthMonitor healthMonitor;
 
+    SharedPreferences sharedPrefs;
+
     boolean requstsAreActive = true;
 
     public PlantOverviewRealtimeWebViewInterface(Context c, HealthMonitor healthMonitor) {
         this.context = c;
         this.healthMonitor = healthMonitor;
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this.context);
     }
     @JavascriptInterface
     public int getWidth() {
@@ -47,12 +54,12 @@ public class PlantOverviewRealtimeWebViewInterface {
 
     @JavascriptInterface
     public String getSensorMinThreshold() {
-        return MiscHelpers.getConfigValue(getActivity(), "sensormin");
+        return sharedPrefs.getString("etSensorMin", "20000");
     }
 
     @JavascriptInterface
     public String getSensorMaxThreshold() {
-        return MiscHelpers.getConfigValue(getActivity(), "sensormax");
+        return sharedPrefs.getString("etSensorMax", "27000");
     }
 
 
@@ -88,8 +95,6 @@ public class PlantOverviewRealtimeWebViewInterface {
                 String newTemperature = "--";
 
                 try {
-                    final int SENSOR_MIN = Integer.parseInt(MiscHelpers.getConfigValue(getActivity(), "sensormin"));
-                    final int SENSOR_MAX = Integer.parseInt(MiscHelpers.getConfigValue(getActivity(), "sensormax"));
 
                     newVal = convertToPercentageString(current);
 
@@ -105,6 +110,16 @@ public class PlantOverviewRealtimeWebViewInterface {
                         healthMonitor.giveUpdate((new Date()).getTime());
                     }
 
+                    // Create Android Notification
+                    int currentValue = Integer.parseInt(convertToPercentageString(current));
+                    int notificationThreshold = Integer.parseInt(sharedPrefs.getString("notificationThreshold", "40"));
+                    boolean showNotifications = sharedPrefs.getBoolean("cbShowNotifications", false);
+                    if(showNotifications && currentValue < notificationThreshold) {
+                        NotificationHelper.makeNotification(context, currentValue);
+                    } else {
+                        NotificationHelper.cancelAll(context);
+                    }
+
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -118,8 +133,8 @@ public class PlantOverviewRealtimeWebViewInterface {
     }
 
     public String convertToPercentageString(String val) {
-        final int SENSOR_MIN = Integer.parseInt(MiscHelpers.getConfigValue(getActivity(), "sensormin"));
-        final int SENSOR_MAX = Integer.parseInt(MiscHelpers.getConfigValue(getActivity(), "sensormax"));
+        final int SENSOR_MIN = Integer.parseInt(sharedPrefs.getString("etSensorMin", "20000"));
+        final int SENSOR_MAX = Integer.parseInt(sharedPrefs.getString("etSensorMax", "27000"));
 
         int intVal = Integer.parseInt(val);
         double rawPercent = ((intVal - SENSOR_MIN) / (float) (SENSOR_MAX - SENSOR_MIN));

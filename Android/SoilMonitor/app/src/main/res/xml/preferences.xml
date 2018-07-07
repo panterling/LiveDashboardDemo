@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <PreferenceCategory
+        android:title="Notifications">
+
+        <CheckBoxPreference
+            android:key="cbShowNotifications"
+            android:title="Show Notifications"
+            android:summary="Be notified when the plants need water"
+            android:defaultValue="true"/>
+
+
+        <ListPreference
+            android:key="notificationThreshold"
+            android:title="Notification Moisture Threshold"
+            android:summary="%s%%"
+            android:dialogTitle="Percentage"
+            android:defaultValue="40"
+            android:entries="@array/notificationValues"
+            android:entryValues="@array/notificationValues"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Sensor"
+        android:key="prefCategorySensorValues">
+
+        <!-- This PreferenceScreen tag serves as a screen break (similar to page break
+            in word processing). Like for other preference types, we assign a key
+            here so it is able to save and restore its instance state. -->
+        <PreferenceScreen
+            android:key="sensorThresholds"
+            android:title="Sensor Thresholds"
+            android:summary="Min/Max Sensor Threshold">
+
+            <ListPreference
+                android:key="etSensorMin"
+                android:title="Sensor Min Value"
+                android:summary="0%% Moisture: %s"
+                android:dialogTitle="Numeric Value  0 - MAX"
+                android:defaultValue="20000"
+                android:entries="@array/sensorValues"
+                android:entryValues="@array/sensorValues" />
+
+
+            <ListPreference
+                android:key="etSensorMax"
+                android:title="Sensor Max Value"
+                android:summary="100%% Moisture: %s"
+                android:dialogTitle="Numeric Value  Min - 27000"
+                android:defaultValue="27000"
+                android:entries="@array/sensorValues"
+                android:entryValues="@array/sensorValues" />
+
+
+        </PreferenceScreen>
+
+
+        <ListPreference
+            android:key="etWateringDuration"
+            android:title="Watering Duration (s)"
+            android:summary="%s seconds"
+            android:defaultValue="2"
+            android:entries="@array/wateringDurationValues"
+            android:entryValues="@array/wateringDurationValues" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>         

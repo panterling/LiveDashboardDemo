@@ -2,16 +2,22 @@ package com.example.chris.soilmonitor.Activities;
 
 import android.app.ActionBar;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,20 +39,20 @@ import com.example.chris.soilmonitor.WebViewInterfaces.PlantOverviewRealtimeWebV
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import static android.R.color.background_light;
 
 public class PlantOverviewActivity extends AppCompatActivity {
 
     RequestQueue httpRequestQueue;
     HealthMonitor healthMonitor;
     PlantOverviewRealtimeWebViewInterface realtimeWebViewInterface;
+    SharedPreferences sharedPrefs;
 
     String SERVER_URL = "";
     int SENSOR_MIN = -1;
@@ -65,9 +71,12 @@ public class PlantOverviewActivity extends AppCompatActivity {
 
 
         httpRequestQueue = Volley.newRequestQueue(this);
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+
         SERVER_URL = MiscHelpers.getConfigValue(this, "serverurlbase");
-        SENSOR_MIN = Integer.parseInt(MiscHelpers.getConfigValue(this, "sensormin"));
-        SENSOR_MAX = Integer.parseInt(MiscHelpers.getConfigValue(this, "sensormax"));
+
+        SENSOR_MIN = Integer.parseInt(sharedPrefs.getString("etSensorMin", "20000"));
+        SENSOR_MAX = Integer.parseInt(sharedPrefs.getString("etSensorMax", "27000"));
 
 
         // Initialise
@@ -92,6 +101,11 @@ public class PlantOverviewActivity extends AppCompatActivity {
         updateHourly();
         updateDaily();
 
+        boolean doWaterPlants = getIntent().getBooleanExtra("doWwaterPlants", false);
+        if(doWaterPlants) {
+            waterPlants();
+        }
+
 
         // Watering Mechanism
         final ImageView ivMoistureIcon = (ImageView) findViewById(R.id.ivMoistureIcon);
@@ -99,17 +113,7 @@ public class PlantOverviewActivity extends AppCompatActivity {
         ivMoistureIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                try {
-
-                    String ip = MiscHelpers.getConfigValue(PlantOverviewActivity.this, "sensorurl");
-
-                    new WateringClient(PlantOverviewActivity.this).execute(new String[] {ip});
-
-                } catch (Exception e) {
-                    Log.e("", "WateringClient: ", e);
-                }
-
+                waterPlants();
             }
         });
 
@@ -127,6 +131,22 @@ public class PlantOverviewActivity extends AppCompatActivity {
         super.onStart();
 
         startRealtimeRequests();
+    }
+
+    private void waterPlants() {
+
+        try {
+
+            String ip = MiscHelpers.getConfigValue(PlantOverviewActivity.this, "sensorurl");
+
+            new WateringClient(PlantOverviewActivity.this).execute(new String[] {ip});
+
+            // Refresh Hourly
+
+
+        } catch (Exception e) {
+            Log.e("", "WateringClient: ", e);
+        }
     }
 
     private void startRealtimeRequests() {
@@ -228,7 +248,7 @@ public class PlantOverviewActivity extends AppCompatActivity {
         httpRequestQueue.add(dailyRequest);
     }
 
-    private void updateHourly(){
+    public void updateHourly(){
 
         if(httpRequestQueue == null) {
             // TODO: Fail case
@@ -299,7 +319,9 @@ public class PlantOverviewActivity extends AppCompatActivity {
                                         nextCell.requestLayout();
                                     }
 
+
                                     llHourOfDay.requestLayout();
+
 
                                 } catch (JSONException e) {
                                     e.printStackTrace();
@@ -328,6 +350,32 @@ public class PlantOverviewActivity extends AppCompatActivity {
                 10000,
                 DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
                 DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+
+
+        // Show Loading
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                LinearLayout llHourOfDay = (LinearLayout)findViewById(R.id.llHourOFDay);
+
+                TextView loadingCell = new TextView(PlantOverviewActivity.this);
+                loadingCell.setBackgroundResource(R.drawable.list_item_bg);
+                loadingCell.setText("Loading...");
+                loadingCell.setTextColor(getResources().getColor(android.R.color.background_light));
+                loadingCell.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+                loadingCell.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                loadingCell.setGravity(Gravity.CENTER);
+                loadingCell.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+                loadingCell.requestLayout();
+
+                llHourOfDay.removeAllViews();
+                llHourOfDay.addView(loadingCell);
+                llHourOfDay.requestLayout();
+            }
+        });
 
         // Add the request to the RequestQueue.
         httpRequestQueue.add(hourlyRequest);

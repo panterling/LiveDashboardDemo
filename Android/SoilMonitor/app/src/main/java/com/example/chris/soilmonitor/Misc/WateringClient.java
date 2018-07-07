@@ -1,6 +1,8 @@
 package com.example.chris.soilmonitor.Misc;
 
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -25,10 +27,12 @@ public class WateringClient extends AsyncTask<String, String, Boolean> {
 
     public PlantOverviewActivity activity;
     private Exception exception;
+    SharedPreferences sharedPrefs;
 
     public WateringClient(PlantOverviewActivity a)
     {
         this.activity = a;
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(a);
     }
 
 
@@ -51,7 +55,11 @@ public class WateringClient extends AsyncTask<String, String, Boolean> {
 
             publishProgress(new String[] {msg});
 
-            out.write("1W");
+            String duration = sharedPrefs.getString("etWateringDuration", "2");
+
+            int durationMillis = Integer.parseInt(duration) * 1000;
+
+            out.write("1W" + duration);
             out.flush();
 
             // TODO: Real responses
@@ -61,7 +69,7 @@ public class WateringClient extends AsyncTask<String, String, Boolean> {
                 long start = System.currentTimeMillis();
                 socket.setSoTimeout(2000);
 
-                while(!done && (System.currentTimeMillis() - start) < 10000) {
+                while(!done && (System.currentTimeMillis() - start) < durationMillis + 2000) {
                     msg = input.readLine();
                     publishProgress(new String[]{msg});
 
@@ -116,6 +124,8 @@ public class WateringClient extends AsyncTask<String, String, Boolean> {
         String outcomeMessage = "No outcome set....";
         if(result) {
             outcomeMessage = "Watered Plants!";
+
+            activity.updateHourly();
         } else {
             outcomeMessage = "Unable to water plants :(";
         }

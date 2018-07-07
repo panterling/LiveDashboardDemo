@@ -1,12 +1,26 @@
 package com.example.chris.soilmonitor.Activities;
 
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.ListPreference;
+import android.preference.Preference;
+import android.preference.PreferenceActivity;
+import android.preference.PreferenceCategory;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v4.app.NotificationCompat;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -17,7 +31,9 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.chris.soilmonitor.Adapters.DayOfWeekAdapter;
+import com.example.chris.soilmonitor.Fragments.PrefsFragment;
 import com.example.chris.soilmonitor.Helpers.MiscHelpers;
+import com.example.chris.soilmonitor.Helpers.NotificationHelper;
 import com.example.chris.soilmonitor.Models.DayOfWeekListItemModel;
 import com.example.chris.soilmonitor.R;
 
@@ -30,15 +46,42 @@ import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class SettingsActivity extends AppCompatActivity {
+public class SettingsActivity extends PreferenceActivity {
     RequestQueue httpRequestQueue;
     String SERVER_URL = "";
+    SharedPreferences sharedPrefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
+
+        // Preferences Fragment
+        // Display the fragment as the main content.
+        FragmentManager mFragmentManager = getFragmentManager();
+        FragmentTransaction mFragmentTransaction = mFragmentManager
+                .beginTransaction();
+        PrefsFragment mPrefsFragment = new PrefsFragment();
+        mFragmentTransaction.replace(R.id.fragPreferences, mPrefsFragment);
+        mFragmentTransaction.commit();
+
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+
+
+        // Temp Notificaiton
+        Button btNotify = (Button) findViewById(R.id.btNotify);
+        btNotify.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                boolean showNotifications = sharedPrefs.getBoolean("cbShowNotifications", false);
+                if(showNotifications) {
+                    NotificationHelper.makeNotification(SettingsActivity.this.getApplicationContext(), 50);
+                }
+            }
+        });
 
 
         httpRequestQueue = Volley.newRequestQueue(this);
@@ -131,6 +174,20 @@ public class SettingsActivity extends AppCompatActivity {
         }, 0, 5000);
 
 
+
+        // ListPreferences Limits
+        PreferenceCategory sensorCategory = (PreferenceCategory) findPreference("prefCategorySensorValues");
+
+
+    }
+
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        Preference pref = findPreference(key);
+
+        if (pref instanceof ListPreference) {
+            ListPreference listPref = (ListPreference) pref;
+            pref.setSummary(listPref.getEntry());
+        }
     }
 
 }
